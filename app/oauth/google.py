@@ -20,7 +20,7 @@ def create_google_blueprint():
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile",
         ],
-        redirect_to="main.index",
+        redirect_to="main.dashboard",
         reprompt_select_account=True,
     )
 
@@ -76,7 +76,7 @@ def create_google_blueprint():
         session["user_id"] = user.id
         session.permanent = True
 
-        return redirect(url_for("main.index"))
+        return redirect(url_for("main.dashboard"))
 
     @oauth_error.connect_via(google_blueprint)
     def handle_google_error(

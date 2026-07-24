@@ -37,20 +37,21 @@
         <div class="auth-visual-content">
           <span class="auth-eyebrow">Local discovery, personalized</span>
 
-          <h2>
-            Find the places that actually fit what you need.
-          </h2>
-
           <p>
-            Discover restaurants, cultural markets, stylists, study spaces,
-            services, and hidden gems around you.
+            Discover niche local places students actually need from cultural
+            grocery stores and trusted barbers to study cafes and hidden gems.
           </p>
 
           <div class="auth-visual-prompt">
             <span class="auth-visual-icon">✦</span>
-            <p>
-              “Find an affordable braider near campus who works with natural hair.”
-            </p>
+
+            <div class="auth-visual-prompt-copy">
+              <span class="auth-visual-prompt-label">Example search</span>
+
+              <p>
+                "Where can I find an authentic Mexican grocery store near campus?"
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -63,15 +64,9 @@
             <h1 id="login-title">Sign in to CityGuide AI</h1>
 
             <p>
-              Continue your conversations and discover places matched to your needs.
+              Continue discovering places tailored to your needs.
             </p>
           </div>
-
-          {% if signup_success %}
-          <div class="form-message" role="status" aria-live="polite">
-            Your account is ready. Sign in to continue.
-          </div>
-          {% endif %}
 
           <a
             href="{{ url_for('google.login') }}"
@@ -101,129 +96,14 @@
             <span>Continue with Google</span>
           </a>
 
-          <div class="auth-divider" aria-hidden="true">
-            <span></span>
-            <p>or continue with email</p>
-            <span></span>
-          </div>
-
-          {% if error %}
-          <div class="form-message" role="alert">
-            {{ error }}
-          </div>
-          {% endif %}
-
           {% if oauth_error %}
           <div class="form-message" role="alert">
             Google sign-in could not be completed. Please try again.
           </div>
           {% endif %}
 
-          <form
-            class="auth-form"
-            action="{{ url_for('auth.login') }}"
-            method="post"
-            novalidate
-            data-auth-form="login"
-          >
-            <div class="form-field">
-              <label for="email">Email address</label>
-
-              <input
-                type="email"
-                id="email"
-                name="email"
-                autocomplete="email"
-                inputmode="email"
-                placeholder="you@example.com"
-                required
-                value="{{ email_value }}"
-              />
-
-              <p class="field-error" id="email-error" aria-live="polite"></p>
-            </div>
-
-            <div class="form-field">
-              <div class="field-label-row">
-                <label for="password">Password</label>
-
-                <a href="#" class="forgot-password-link">
-                  Forgot password?
-                </a>
-              </div>
-
-              <div class="password-field">
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  autocomplete="current-password"
-                  placeholder="Enter your password"
-                  minlength="8"
-                  required
-                />
-
-                <button
-                  type="button"
-                  class="password-toggle"
-                  aria-label="Show password"
-                  aria-pressed="false"
-                  data-password-toggle
-                >
-                  <svg
-                    class="password-icon password-icon-show"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
-                    />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-
-                  <svg
-                    class="password-icon password-icon-hide"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    hidden
-                  >
-                    <path d="m3 3 18 18" />
-                    <path d="M10.6 10.7a2 2 0 0 0 2.7 2.7" />
-                    <path d="M9.9 4.2A10.8 10.8 0 0 1 12 4c6 0 9.5 6 9.5 6a16.5 16.5 0 0 1-2.2 3" />
-                    <path d="M6.2 6.2C3.8 8 2.5 10 2.5 10s3.5 6 9.5 6a9.8 9.8 0 0 0 3.7-.7" />
-                  </svg>
-                </button>
-              </div>
-
-              <p class="field-error" id="password-error" aria-live="polite"></p>
-            </div>
-
-            <div class="auth-form-options">
-              <label class="remember-option">
-                <input type="checkbox" name="remember" />
-                <span>Keep me signed in</span>
-              </label>
-            </div>
-
-            <div
-              class="form-message"
-              role="status"
-              aria-live="polite"
-              hidden
-            ></div>
-
-            <button type="submit" class="auth-submit-button">
-              <span>Sign in</span>
-            </button>
-          </form>
-
-          <p class="auth-switch">
-            Don’t have an account?
-            <a href="{{ url_for('auth.signup') }}">Create one</a>
-          </p>
-
           <p class="auth-legal">
-            By continuing, you agree to the
+            By continuing, you agree to our
             <a href="{{ url_for('main.terms') }}">Terms of Service</a>
             and
             <a href="{{ url_for('main.privacy') }}">Privacy Policy</a>.
@@ -232,7 +112,5 @@
       </div>
     </section>
   </main>
-
-  <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
 </body>
 </html>

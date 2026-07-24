@@ -4,15 +4,33 @@ from app.extensions import db
 from app.models import User
 
 
+def authenticate_client(client, app):
+    with app.app_context():
+        user = User(
+            email="dashboard@example.com",
+            display_name="Dashboard User",
+            google_sub="dashboard-google-user",
+            avatar_url=None,
+        )
+
+        db.session.add(user)
+        db.session.commit()
+
+        user_id = user.id
+
+    with client.session_transaction() as session:
+        session["user_id"] = user_id
+
+    return user_id
+
+
 @pytest.mark.parametrize(
     ("path", "expected_text"),
     [
         ("/", b"CityGuide AI"),
         ("/login", b"Sign in to CityGuide AI"),
-        ("/signup", b"Create your account"),
         ("/terms", b"Terms of Service"),
         ("/privacy", b"Privacy Policy"),
-        ("/dashboard", b"Dashboard"),
     ],
 )
 def test_page_routes_return_success(client, path, expected_text):
@@ -28,61 +46,14 @@ def test_unknown_route_returns_not_found(client):
     assert response.status_code == 404
 
 
-def test_signup_creates_user_and_redirects_to_login(client, app):
-    response = client.post(
+def test_signup_redirects_to_login(client):
+    response = client.get(
         "/signup",
-        data={
-            "displayName": "Simon Lartey",
-            "email": "simon@example.com",
-            "password": "secure-password-123",
-            "confirmPassword": "secure-password-123",
-            "terms": "on",
-        },
+        follow_redirects=False,
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/login?signup=success")
-
-    with app.app_context():
-        user = db.session.execute(
-            db.select(User).where(User.email == "simon@example.com")
-        ).scalar_one()
-
-        assert user.display_name == "Simon Lartey"
-        assert user.check_password("secure-password-123")
-
-
-def test_signup_rejects_duplicate_email(client, app):
-    with app.app_context():
-        user = User(
-            email="simon@example.com",
-            display_name="Simon Lartey",
-            password_hash="",
-        )
-        user.set_password("secure-password-123")
-        db.session.add(user)
-        db.session.commit()
-
-    response = client.post(
-        "/signup",
-        data={
-            "displayName": "Another User",
-            "email": "simon@example.com",
-            "password": "secure-password-123",
-            "confirmPassword": "secure-password-123",
-            "terms": "on",
-        },
-    )
-
-    assert response.status_code == 200
-    assert b"An account with that email already exists." in response.data
-
-    with app.app_context():
-        users = db.session.execute(
-            db.select(User).where(User.email == "simon@example.com")
-        ).scalars().all()
-
-        assert len(users) == 1
+    assert response.headers["Location"].endswith("/login")
 
 
 @pytest.mark.parametrize(
@@ -111,10 +82,8 @@ def test_static_assets_are_served(client, path):
     [
         "/",
         "/login",
-        "/signup",
         "/privacy",
         "/terms",
-        "/dashboard",
     ],
 )
 def test_pages_use_cityguide_logo(client, path):
@@ -127,6 +96,21 @@ def test_pages_use_cityguide_logo(client, path):
     assert (
         "images/cityguide-logo.svg"
         in html
+    )
+
+
+def test_authenticated_dashboard_uses_cityguide_logo(
+    client,
+    app,
+):
+    authenticate_client(client, app)
+
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert (
+        "/static/images/cityguide-logo.svg"
+        in response.get_data(as_text=True)
     )
 
 
@@ -152,7 +136,26 @@ def test_dashboard_javascript_uses_assistant_response(client):
     )
 
 
-def test_dashboard_centralizes_selected_location(client):
+def test_dashboard_javascript_initializes_profile_menu(
+    client,
+):
+    response = client.get(
+        "/static/js/dashboard.js"
+    )
+
+    assert response.status_code == 200
+
+    javascript = response.get_data(as_text=True)
+
+    assert "initializeProfileMenu" in javascript
+    assert "profileMenuTrigger" in javascript
+    assert '"aria-expanded"' in javascript
+    assert '"Escape"' in javascript
+
+
+def test_dashboard_centralizes_selected_location(client, app):
+    authenticate_client(client, app)
+
     javascript_response = client.get(
         "/static/js/dashboard.js"
     )
@@ -195,7 +198,9 @@ def test_dashboard_centralizes_selected_location(client):
     )
 
 
-def test_dashboard_supports_manual_location_selection(client):
+def test_dashboard_supports_manual_location_selection(client, app):
+    authenticate_client(client, app)
+
     javascript_response = client.get(
         "/static/js/dashboard.js"
     )
@@ -250,7 +255,9 @@ def test_dashboard_supports_manual_location_selection(client):
     assert 'aria-live="polite"' in html
 
 
-def test_dashboard_supports_current_location_detection(client):
+def test_dashboard_supports_current_location_detection(client, app):
+    authenticate_client(client, app)
+
     javascript_response = client.get(
         "/static/js/dashboard.js"
     )
@@ -343,7 +350,9 @@ def test_dashboard_supports_current_location_detection(client):
     )
 
 
-def test_dashboard_routes_followups_through_active_session(client):
+def test_dashboard_routes_followups_through_active_session(client, app):
+    authenticate_client(client, app)
+
     javascript_response = client.get(
         "/static/js/dashboard.js"
     )
@@ -494,7 +503,9 @@ def test_dashboard_uses_compact_place_action_labels(client):
     )
 
 
-def test_dashboard_places_photo_thumbnails_below_hero(client):
+def test_dashboard_places_photo_thumbnails_below_hero(client, app):
+    authenticate_client(client, app)
+
     dashboard_response = client.get(
         "/dashboard"
     )
@@ -559,7 +570,9 @@ def test_dashboard_places_photo_thumbnails_below_hero(client):
     )
 
 
-def test_dashboard_uses_discovery_focused_sidebar(client):
+def test_dashboard_uses_discovery_focused_sidebar(client, app):
+    authenticate_client(client, app)
+
     response = client.get("/dashboard")
 
     assert response.status_code == 200
@@ -591,7 +604,9 @@ def test_dashboard_uses_discovery_focused_sidebar(client):
     assert 'data-lucide="history"' in html
 
 
-def test_dashboard_supports_local_saved_places(client):
+def test_dashboard_supports_local_saved_places(client, app):
+    authenticate_client(client, app)
+
     dashboard_response = client.get("/dashboard")
     javascript_response = client.get(
         "/static/js/dashboard.js"
@@ -634,7 +649,9 @@ def test_dashboard_supports_local_saved_places(client):
     assert "fill: currentColor;" in stylesheet
 
 
-def test_dashboard_contains_saved_places_view(client):
+def test_dashboard_contains_saved_places_view(client, app):
+    authenticate_client(client, app)
+
     dashboard_response = client.get("/dashboard")
     javascript_response = client.get(
         "/static/js/dashboard.js"
@@ -688,7 +705,9 @@ def test_dashboard_contains_saved_places_view(client):
     assert ".saved-places-empty" in stylesheet
 
 
-def test_dashboard_contains_discovery_hub(client):
+def test_dashboard_contains_discovery_hub(client, app):
+    authenticate_client(client, app)
+
     dashboard_response = client.get("/dashboard")
     javascript_response = client.get(
         "/static/js/dashboard.js"

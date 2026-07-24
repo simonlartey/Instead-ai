@@ -167,29 +167,80 @@
       </nav>
 
       <footer class="sidebar-footer">
-        <div class="sidebar-profile">
-          <div
-            class="profile-avatar"
-            aria-hidden="true"
-          >
-            SL
-          </div>
+        {% set name_parts = current_user.display_name.split() %}
+        {% set first_initial = name_parts[0][0] if name_parts else "U" %}
+        {% set last_initial = name_parts[-1][0] if name_parts|length > 1 else "" %}
 
-          <div class="profile-copy profile-details">
-            <strong>Simon L.</strong>
-            <span>Portland, ME</span>
-          </div>
-
+        <div
+          class="profile-menu"
+          data-profile-menu
+        >
           <button
             type="button"
-            class="icon-button"
+            class="profile-menu-trigger"
+            data-profile-menu-trigger
             aria-label="Open profile menu"
+            aria-expanded="false"
+            aria-haspopup="menu"
+            aria-controls="profile-menu-popover"
           >
-            <span
-              aria-hidden="true"
-              data-lucide="chevron-down"
-            ></span>
+            <div class="sidebar-profile">
+              <div
+                class="profile-avatar"
+                aria-hidden="true"
+              >
+                {{ (first_initial ~ last_initial) | upper }}
+              </div>
+
+              <div class="profile-copy profile-details">
+                <strong>{{ current_user.display_name }}</strong>
+                <span>{{ current_user.email }}</span>
+              </div>
+
+              <span
+                class="profile-menu-chevron"
+                aria-hidden="true"
+                data-lucide="chevron-down"
+              ></span>
+            </div>
           </button>
+
+          <div
+            id="profile-menu-popover"
+            class="profile-menu-popover"
+            data-profile-menu-popover
+            role="menu"
+            hidden
+          >
+            <div class="profile-menu-account">
+              <span class="profile-menu-label">Signed in as</span>
+              <strong>{{ current_user.display_name }}</strong>
+              <span>{{ current_user.email }}</span>
+            </div>
+
+            <div
+              class="profile-menu-divider"
+              aria-hidden="true"
+            ></div>
+
+            <form
+              action="{{ url_for('auth.logout') }}"
+              method="post"
+            >
+              <button
+                type="submit"
+                class="profile-menu-signout"
+                role="menuitem"
+              >
+                <span
+                  aria-hidden="true"
+                  data-lucide="log-out"
+                ></span>
+
+                <span>Sign out</span>
+              </button>
+            </form>
+          </div>
         </div>
       </footer>
     </aside>

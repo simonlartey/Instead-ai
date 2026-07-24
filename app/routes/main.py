@@ -1,4 +1,6 @@
-from flask import Blueprint, current_app, render_template
+from flask import Blueprint, current_app, g, render_template
+
+from app.authentication import login_required
 
 main_bp = Blueprint("main", __name__)
 
@@ -19,9 +21,11 @@ def privacy():
 
 
 @main_bp.get("/dashboard")
+@login_required
 def dashboard():
     return render_template(
         "dashboard.html",
+        current_user=g.current_user,
         maps_javascript_api_key=current_app.config.get(
             "MAPS_JAVASCRIPT_API_KEY"
         ),

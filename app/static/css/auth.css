@@ -197,6 +197,8 @@ svg {
 }
 
 .auth-visual-content {
+  display: grid;
+  gap: 24px;
   position: relative;
   z-index: 2;
   max-width: 610px;
@@ -213,17 +215,7 @@ svg {
 }
 
 .auth-eyebrow {
-  margin-bottom: 18px;
   color: rgba(255, 255, 255, 0.72);
-}
-
-.auth-visual-content h2 {
-  max-width: 560px;
-  margin-bottom: 20px;
-  font-size: clamp(2.6rem, 4vw, 4.7rem);
-  line-height: 1.02;
-  font-weight: 500;
-  letter-spacing: -0.06em;
 }
 
 .auth-visual-content > p {
@@ -236,13 +228,25 @@ svg {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  margin-top: 32px;
-  padding: 18px 20px;
+  padding: 16px 20px;
   color: rgba(255, 255, 255, 0.92);
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--auth-radius-md);
   backdrop-filter: blur(16px);
+}
+
+.auth-visual-prompt-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-visual-prompt-label {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .auth-visual-icon {
