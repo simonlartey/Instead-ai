@@ -1,5 +1,6 @@
 from flask import Flask
 
+from app.authentication import load_current_user
 from app.extensions import db, migrate
 from app.providers.assistant.factory import create_assistant_provider
 from app.providers.places.factory import create_places_provider
@@ -45,6 +46,8 @@ def create_app(config_class=Config):
 
     db.init_app(app)
     migrate.init_app(app, db)
+
+    app.before_request(load_current_user)
 
     from app import models  # noqa: F401
     from app.oauth import create_google_blueprint

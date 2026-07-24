@@ -1,5 +1,10 @@
 const SELECTORS = {
   conversation: "#dashboard-conversation",
+  profileMenu: "[data-profile-menu]",
+  profileMenuTrigger:
+    "[data-profile-menu-trigger]",
+  profileMenuPopover:
+    "[data-profile-menu-popover]",
   locationLabel: "[data-current-location-label]",
   locationSelector: "[data-location-selector]",
   locationPanel: "[data-location-panel]",
@@ -4144,10 +4149,64 @@ const initializeNewChat = () => {
   });
 };
 
+const initializeProfileMenu = () => {
+  const menu = document.querySelector(
+    SELECTORS.profileMenu
+  );
+
+  const trigger = document.querySelector(
+    SELECTORS.profileMenuTrigger
+  );
+
+  const popover = document.querySelector(
+    SELECTORS.profileMenuPopover
+  );
+
+  if (!menu || !trigger || !popover) {
+    return;
+  }
+
+  const setMenuOpen = (isOpen) => {
+    trigger.setAttribute(
+      "aria-expanded",
+      String(isOpen)
+    );
+
+    popover.hidden = !isOpen;
+  };
+
+  trigger.addEventListener("click", () => {
+    const isOpen =
+      trigger.getAttribute("aria-expanded") ===
+      "true";
+
+    setMenuOpen(!isOpen);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (
+      event.target instanceof Node &&
+      !menu.contains(event.target)
+    ) {
+      setMenuOpen(false);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    setMenuOpen(false);
+    trigger.focus();
+  });
+};
+
 const initializeDashboard = () => {
   updateLocationLabels();
   initializeLocationSelector();
   initializeConversation();
+  initializeProfileMenu();
   setSearchProgressItemsState("ready");
   initializeFilterChips();
   initializeRecommendationCards();

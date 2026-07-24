@@ -64,7 +64,7 @@ def test_google_callback_creates_session(app):
     )
 
     assert result.status_code == 302
-    assert result.headers["Location"].endswith("/")
+    assert result.headers["Location"].endswith("/dashboard")
     assert "user_id" in session_data
     assert session_data["user_id"] is not None
 
