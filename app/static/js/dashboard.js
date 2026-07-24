@@ -914,7 +914,7 @@ const createMessageAvatar = (role) => {
 
   logo.className = "message-avatar-logo";
   logo.src =
-    "/static/images/cityguide-logo.svg";
+    "/static/images/instead-logo.svg";
   logo.alt = "";
   logo.setAttribute("aria-hidden", "true");
 
@@ -945,7 +945,7 @@ const createConversationMessage = ({
   // Add a visually hidden sender label for screen readers
   const sender = document.createElement("span");
   sender.className = "sr-only";
-  sender.textContent = role === "user" ? "You:" : "CityGuide AI:";
+  sender.textContent = role === "user" ? "You:" : "Instead:";
 
   const time = document.createElement("time");
   const now = new Date();

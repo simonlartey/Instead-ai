@@ -8,7 +8,7 @@ from app.extensions import db
 
 
 class User(db.Model):
-    """A registered CityGuide AI user."""
+    """A registered Instead user."""
 
     __tablename__ = "users"
 
