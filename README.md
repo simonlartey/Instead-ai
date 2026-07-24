@@ -1,6 +1,6 @@
-# CityGuide AI
+# Instead
 
-CityGuide AI is an AI-powered Flask web application that helps students and newcomers discover personalized local businesses, services, and places based on their preferences, budget, and location.
+Instead is an AI-powered Flask web application that helps students and newcomers discover personalized local businesses, services, and places based on their preferences, budget, and location.
 
 > **Status:**  Early development
 

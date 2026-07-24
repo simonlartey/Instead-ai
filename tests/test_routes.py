@@ -27,8 +27,8 @@ def authenticate_client(client, app):
 @pytest.mark.parametrize(
     ("path", "expected_text"),
     [
-        ("/", b"CityGuide AI"),
-        ("/login", b"Sign in to CityGuide AI"),
+        ("/", b"Instead"),
+        ("/login", b"Sign in to Instead"),
         ("/terms", b"Terms of Service"),
         ("/privacy", b"Privacy Policy"),
     ],
@@ -67,7 +67,7 @@ def test_signup_redirects_to_login(client):
         "/static/js/auth.js",
         "/static/js/dashboard.js",
         "/static/images/hero_img.jpg",
-        "/static/images/cityguide-logo.svg",
+        "/static/images/instead-logo.svg",
         "/static/images/cityguide-transparent.png",
     ],
 )
@@ -86,7 +86,7 @@ def test_static_assets_are_served(client, path):
         "/terms",
     ],
 )
-def test_pages_use_cityguide_logo(client, path):
+def test_pages_use_instead_logo(client, path):
     response = client.get(path)
 
     assert response.status_code == 200
@@ -94,12 +94,12 @@ def test_pages_use_cityguide_logo(client, path):
     html = response.get_data(as_text=True)
 
     assert (
-        "images/cityguide-logo.svg"
+        "images/instead-logo.svg"
         in html
     )
 
 
-def test_authenticated_dashboard_uses_cityguide_logo(
+def test_authenticated_dashboard_uses_instead_logo(
     client,
     app,
 ):
@@ -109,7 +109,7 @@ def test_authenticated_dashboard_uses_cityguide_logo(
 
     assert response.status_code == 200
     assert (
-        "/static/images/cityguide-logo.svg"
+        "/static/images/instead-logo.svg"
         in response.get_data(as_text=True)
     )
 
@@ -761,7 +761,7 @@ def test_dashboard_contains_discovery_hub(client, app):
     assert "updateDiscoveryLocation" in javascript
     assert "message-avatar-logo" in javascript
     assert (
-        '"/static/images/cityguide-logo.svg"'
+        '"/static/images/instead-logo.svg"'
         in javascript
     )
     assert "✦" not in javascript
