@@ -24,7 +24,9 @@
       class="auth-logo"
       aria-label="Return to the Instead homepage"
     >
-      <img class="auth-logo-mark" src="{{ url_for('static', filename='images/instead-logo.svg') }}" alt="" />
+      <span class="auth-logo-mark-shell" aria-hidden="true">
+        <img class="auth-logo-mark" src="{{ url_for('static', filename='images/instead-logo.svg') }}" alt="" />
+      </span>
       <span>Instead</span>
     </a>
   </header>

@@ -157,20 +157,58 @@ svg {
 
 .dashboard-brand {
   display: inline-flex;
-  align-items: center;
-  gap: 11px;
   min-width: 0;
-  font-size: 1.28rem;
-  font-weight: 800;
-  letter-spacing: -0.035em;
+  align-items: center;
+  gap: 12px;
+  line-height: 1;
 }
 
-.dashboard-brand-mark {
+.dashboard-brand-mark-shell,
+.message-avatar-mark-shell {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(201, 137, 43, 0.22),
+      rgba(58, 38, 23, 0.34)
+    );
+  border: 1px solid rgba(219, 176, 86, 0.35);
+  border-radius: 7px;
+  box-shadow:
+    0 7px 20px rgba(0, 0, 0, 0.32),
+    0 0 16px rgba(201, 137, 43, 0.1);
+  transform: rotate(45deg);
+}
+
+.dashboard-brand-mark-shell {
+  position: relative;
+  top: -1px;
+  flex: 0 0 28px;
+  margin-inline: 0;
+}
+
+.dashboard-brand-mark,
+.message-avatar-logo {
   display: block;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 auto;
+  width: 23px;
+  height: 23px;
   object-fit: contain;
+  transform: rotate(-45deg) scale(1.12);
+}
+
+.dashboard-brand-text {
+  overflow: hidden;
+  color: var(--dashboard-text);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .icon-button {
@@ -1456,15 +1494,7 @@ svg {
 }
 
 .message-avatar--assistant {
-  background: var(--dashboard-accent-soft);
-  border: 1px solid rgba(201, 137, 43, 0.22);
-}
-
-.message-avatar-logo {
-  display: block;
-  width: 19px;
-  height: 19px;
-  object-fit: contain;
+  background: transparent;
 }
 
 .message-bubble {
@@ -2505,6 +2535,11 @@ svg {
   justify-content: center;
 }
 
+.dashboard-shell--sidebar-collapsed
+  .dashboard-brand-mark-shell {
+  margin-inline: auto;
+}
+
 .dashboard-shell--sidebar-collapsed .dashboard-brand-text,
 .dashboard-shell--sidebar-collapsed .new-chat-label,
 .dashboard-shell--sidebar-collapsed .sidebar-link-label,
@@ -2733,6 +2768,11 @@ svg {
     .sidebar-header {
     display: flex;
     justify-items: initial;
+  }
+
+  .dashboard-shell--sidebar-collapsed
+    .dashboard-brand-mark-shell {
+    margin-inline: 0;
   }
 
   .dashboard-shell--sidebar-collapsed

@@ -66,18 +66,38 @@ a {
 .logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 11px;
   font-size: 1.7rem;
   font-weight: 800;
   color: white;
+  line-height: 1;
+}
+
+.logo-mark-shell {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 247, 228, 0.96),
+      rgba(221, 178, 99, 0.24)
+    );
+  border: 1px solid rgba(166, 106, 33, 0.42);
+  border-radius: 7px;
+  box-shadow: 0 6px 18px rgba(87, 58, 27, 0.12);
+  transform: rotate(45deg);
 }
 
 .logo-mark {
   display: block;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
+  width: 25px;
+  height: 25px;
   object-fit: contain;
+  transform: rotate(-45deg) scale(1.12);
 }
 
 .nav-links {
