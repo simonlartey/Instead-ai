@@ -62,14 +62,34 @@ a {
   font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.legal-logo-mark-shell {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  place-items: center;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 247, 228, 0.96),
+      rgba(221, 178, 99, 0.24)
+    );
+  border: 1px solid rgba(166, 106, 33, 0.42);
+  border-radius: 7px;
+  box-shadow: 0 6px 18px rgba(87, 58, 27, 0.12);
+  transform: rotate(45deg);
 }
 
 .legal-logo-mark {
   display: block;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
+  transform: rotate(-45deg) scale(1.12);
 }
 
 .legal-main {

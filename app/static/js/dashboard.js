@@ -911,6 +911,7 @@ const createMessageAvatar = (role) => {
   }
 
   const logo = document.createElement("img");
+  const markShell = document.createElement("span");
 
   logo.className = "message-avatar-logo";
   logo.src =
@@ -918,7 +919,10 @@ const createMessageAvatar = (role) => {
   logo.alt = "";
   logo.setAttribute("aria-hidden", "true");
 
-  avatar.append(logo);
+  markShell.className = "message-avatar-mark-shell";
+  markShell.append(logo);
+
+  avatar.append(markShell);
   avatar.setAttribute("aria-hidden", "true");
 
   return avatar;

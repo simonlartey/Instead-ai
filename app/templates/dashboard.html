@@ -42,11 +42,16 @@
           class="dashboard-brand"
           aria-label="Instead home"
         >
-          <img
-            class="dashboard-brand-mark"
-            src="{{ url_for('static', filename='images/instead-logo.svg') }}"
-            alt=""
-          />
+          <span
+            class="dashboard-brand-mark-shell"
+            aria-hidden="true"
+          >
+            <img
+              class="dashboard-brand-mark"
+              src="{{ url_for('static', filename='images/instead-logo.svg') }}"
+              alt=""
+            />
+          </span>
 
           <span class="dashboard-brand-text">Instead</span>
         </a>

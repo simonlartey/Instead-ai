@@ -23,7 +23,9 @@
       class="legal-logo"
       aria-label="Return to the Instead homepage"
     >
-      <img class="legal-logo-mark" src="{{ url_for('static', filename='images/instead-logo.svg') }}" alt="" />
+      <span class="legal-logo-mark-shell" aria-hidden="true">
+        <img class="legal-logo-mark" src="{{ url_for('static', filename='images/instead-logo.svg') }}" alt="" />
+      </span>
       <span>Instead</span>
     </a>
   </header>

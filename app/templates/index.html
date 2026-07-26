@@ -13,7 +13,9 @@
   <nav class="navbar">
     <div class="container nav-inner">
       <a href="{{ url_for('main.index') }}" class="logo">
-        <img class="logo-mark" src="{{ url_for('static', filename='images/instead-logo.svg') }}" alt="" />
+        <span class="logo-mark-shell" aria-hidden="true">
+          <img class="logo-mark" src="{{ url_for('static', filename='images/instead-logo.svg') }}" alt="" />
+        </span>
         <span>Instead</span>
       </a>
 
