@@ -1,4 +1,5 @@
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.authentication import load_current_user
 from app.extensions import db, migrate
@@ -18,6 +19,14 @@ def create_app(config_class=Config):
     """Create and configure the CityGuide Flask application."""
 
     app = Flask(__name__)
+
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=1,
+        x_proto=1,
+        x_host=1,
+    )
+
     app.config.from_object(config_class)
 
     app.extensions[
