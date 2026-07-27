@@ -1,211 +1,357 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Instead — Discover What’s Around You</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/cityguide-transparent.png') }}" />
-  <link rel="preload" as="image" href="{{ url_for('static', filename='images/hero_img.jpg') }}" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
-</head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="description"
+    content="Instead helps you discover niche local places and services that truly fit."
+  />
 
+  <title>Instead — The local places you’re looking for</title>
+
+  <link
+    rel="icon"
+    type="image/png"
+    href="{{ url_for('static', filename='images/cityguide-transparent.png') }}"
+  />
+
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/landing.css') }}"
+  />
+
+  <script
+    src="{{ url_for('static', filename='js/landing.js') }}"
+    defer
+  ></script>
+</head>
 <body>
-  <nav class="navbar">
-    <div class="container nav-inner">
-      <a href="{{ url_for('main.index') }}" class="logo">
-        <span class="logo-mark-shell" aria-hidden="true">
-          <img class="logo-mark" src="{{ url_for('static', filename='images/instead-logo.svg') }}" alt="" />
+  <svg class="icon-sprite" aria-hidden="true">
+    <defs>
+      <symbol id="icon-coffee" viewBox="0 0 24 24">
+        <path d="M3 8h14v7a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8Z" />
+        <path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M6 3v2M10 3v2M14 3v2M3 21h15" />
+      </symbol>
+      <symbol id="icon-cafe" viewBox="0 0 24 24">
+        <path d="M3 8h14v7a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8Z" />
+        <path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M6 3v2M10 3v2M14 3v2M3 21h15" />
+      </symbol>
+      <symbol id="icon-scissors" viewBox="0 0 24 24">
+        <circle cx="6" cy="7" r="3" />
+        <circle cx="6" cy="17" r="3" />
+        <path d="m8.7 8.3 11.3 8.2M8.7 15.7 20 7.5" />
+      </symbol>
+      <symbol id="icon-moon" viewBox="0 0 24 24">
+        <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z" />
+      </symbol>
+      <symbol id="icon-sparkles" viewBox="0 0 24 24">
+        <path d="m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2L12 3ZM5.5 14l.8 2.2 2.2.8-2.2.8L5.5 20l-.8-2.2-2.2-.8 2.2-.8.8-2.2ZM18 14l.7 1.8 1.8.7-1.8.7L18 19l-.7-1.8-1.8-.7 1.8-.7L18 14Z" />
+      </symbol>
+      <symbol id="icon-basket" viewBox="0 0 24 24">
+        <path d="m6 10 3-6M18 10l-3-6M3 10h18l-2 10H5L3 10Z" />
+        <path d="M8 13v4M12 13v4M16 13v4" />
+      </symbol>
+      <symbol id="icon-utensils" viewBox="0 0 24 24">
+        <path d="M6 3v18M3.5 3v5a2.5 2.5 0 0 0 5 0V3M15 3v18M15 3c3 1 4.5 3.5 4.5 6.5V12H15" />
+      </symbol>
+      <symbol id="icon-book" viewBox="0 0 24 24">
+        <path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5ZM20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" />
+      </symbol>
+      <symbol id="icon-compass" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="m15.5 8.5-2.1 4.9-4.9 2.1 2.1-4.9 4.9-2.1Z" />
+      </symbol>
+      <symbol id="icon-briefcase" viewBox="0 0 24 24">
+        <rect x="3" y="7" width="18" height="13" rx="2" />
+        <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v2h4v-2" />
+      </symbol>
+      <symbol id="icon-plant" viewBox="0 0 24 24">
+        <path d="M12 13V5M12 9C9 9 7 7 7 4c3 0 5 2 5 5ZM12 11c3 0 5-2 5-5-3 0-5 2-5 5Z" />
+        <path d="M6 13h12l-1 8H7l-1-8Z" />
+      </symbol>
+      <symbol id="icon-store" viewBox="0 0 24 24">
+        <path d="M4 10v10h16V10M3 4h18l-1 6a3 3 0 0 1-5 1 3.5 3.5 0 0 1-6 0 3 3 0 0 1-5-1L3 4Z" />
+        <path d="M9 20v-5h6v5" />
+      </symbol>
+    </defs>
+  </svg>
+
+  <header class="hero" id="top">
+    <div class="hero-skyline" aria-hidden="true"></div>
+    <div class="hero-glow" aria-hidden="true"></div>
+
+    <nav class="nav container" aria-label="Primary navigation">
+      <a class="brand" href="{{ url_for('main.index') }}" aria-label="Instead home">
+        <span class="brand-mark">
+          <img
+            src="{{ url_for('static', filename='images/instead-logo.svg') }}"
+            alt=""
+          />
         </span>
         <span>Instead</span>
       </a>
+      <div class="nav-links">
+        <a href="#discover">Discover</a>
+        <a href="#categories">Categories</a>
+        <a href="#businesses">For Businesses</a>
+      </div>
+      <a class="button button--gold" href="{{ url_for('auth.signup') }}">
+        Start Exploring <span aria-hidden="true">→</span>
+      </a>
+    </nav>
 
-      <ul class="nav-links">
-        <li><a href="#how">How It Works</a></li>
-        <li><a href="#categories">Categories</a></li>
+    <div class="hero-content container">
+      <p class="eyebrow">Local discovery, made personal</p>
+      <p class="hero-copy">Whether you're looking for a hidden café, a specialty grocery, or a trusted local service, Instead helps you discover places that truly fit.</p>
+
+      <form
+        class="hero-search"
+        id="demo-search"
+        action="{{ url_for('auth.signup') }}"
+        aria-describedby="demo-disclaimer"
+        novalidate
+      >
+        <label class="sr-only" for="search-input">What are you looking for today?</label>
+        <span class="search-icon" aria-hidden="true"></span>
+        <input id="search-input" type="search" autocomplete="off" placeholder="What are you looking for today?" />
+        <button type="submit" aria-label="Continue to live search">↑</button>
+      </form>
+      <p class="demo-disclaimer" id="demo-disclaimer">Sign in to run a live search.</p>
+
+      <div class="prompt-row" aria-label="Example searches">
+        <button class="prompt-chip" type="button" data-query="A quiet café with reliable Wi-Fi and outlets"><svg aria-hidden="true"><use href="#icon-coffee" /></svg><span>Quiet café with Wi-Fi</span></button>
+        <button class="prompt-chip" type="button" data-query="An affordable barber nearby who understands textured hair"><svg aria-hidden="true"><use href="#icon-scissors" /></svg><span>Affordable haircut nearby</span></button>
+        <button class="prompt-chip" type="button" data-query="Late-night food that is still open"><svg aria-hidden="true"><use href="#icon-moon" /></svg><span>Late-night food</span></button>
+        <button class="prompt-chip" type="button" data-query="Something fun to do this weekend"><svg aria-hidden="true"><use href="#icon-sparkles" /></svg><span>Weekend activities</span></button>
+        <button class="prompt-chip" type="button" data-query="International groceries close to me"><svg aria-hidden="true"><use href="#icon-basket" /></svg><span>International groceries</span></button>
+      </div>
+    </div>
+
+    <div class="demo-label" aria-label="Interactive product preview">
+      Interactive preview
+    </div>
+
+    <section class="product-stage container" id="discover" aria-label="Interactive product preview">
+      <aside class="demo-sidebar">
+        <a class="demo-brand" href="{{ url_for('main.index') }}">
+          <span class="brand-mark demo-brand-mark">
+            <img
+              src="{{ url_for('static', filename='images/instead-logo.svg') }}"
+              alt=""
+            />
+          </span>
+          <strong>Instead</strong>
+        </a>
+        <button class="new-search" type="button">Try another example</button>
+        <nav aria-label="Preview navigation">
+          <a class="active" href="#discover">⌕ <span>Explore</span></a>
+          <a href="#discover">♡ <span>Saved Places</span></a>
+          <a href="#categories">⌘ <span>Categories</span></a>
+          <a href="#discover">◇ <span>Student Deals</span></a>
+          <a href="#discover">♧ <span>Community Picks</span></a>
+          <a href="#discover">◷ <span>History</span></a>
+        </nav>
+        <div class="profile" aria-label="User profile">
+          <span>LS</span>
+        </div>
+      </aside>
+
+      <div class="demo-results">
+        <div class="demo-toolbar">
+          <div>
+            <span class="demo-toolbar-note">Demo results</span>
+            <strong class="demo-query-title" id="demo-query">A quiet café with outlets, open late.</strong>
+            <small id="result-status">3 sample results</small>
+          </div>
+          <div><button>Sort: Best match⌄</button><button>☷ Filters</button></div>
+        </div>
+        <div class="results-layout">
+          <div class="place-list" id="place-list">
+            <article class="place-card selected" data-place="night-owl">
+              <img
+                src="{{ url_for('static', filename='images/night-owl-thumb-v2.webp') }}"
+                alt="Warm café interior"
+              />
+              <div><h3>Night Owl Café</h3><p><span class="rating">4.8 ★★★★★</span> (342)</p><p>Open until 11:00 PM · $$</p><p>8 min walk · 0.4 mi</p><div class="tags"><span>Quiet</span><span>Outlets</span><span>Wi-Fi</span></div></div>
+              <button aria-label="Save Night Owl Café">♡</button>
+            </article>
+            <article class="place-card" data-place="brewed">
+              <img
+                src="{{ url_for('static', filename='images/brewed-awakenings.webp') }}"
+                alt="Cozy café seating"
+              />
+              <div><h3>Brewed Awakenings</h3><p><span class="rating">4.6 ★★★★★</span> (198)</p><p>Open until 10:00 PM · $$</p><p>10 min walk · 0.5 mi</p><div class="tags"><span>Quiet</span><span>Outlets</span></div></div>
+              <button aria-label="Save Brewed Awakenings">♡</button>
+            </article>
+            <article class="place-card" data-place="common">
+              <img
+                src="{{ url_for('static', filename='images/common-grounds.webp') }}"
+                alt="Coffee shop interior"
+              />
+              <div><h3>Common Grounds</h3><p><span class="rating">4.5 ★★★★★</span> (276)</p><p>Open until 9:30 PM · $</p><p>12 min walk · 0.6 mi</p><div class="tags"><span>Wi-Fi</span><span>Cozy</span></div></div>
+              <button aria-label="Save Common Grounds">♡</button>
+            </article>
+            <button class="more-results">See more sample results →</button>
+          </div>
+
+          <div class="map-panel" aria-label="Stylized map preview">
+            <svg viewBox="0 0 420 520" role="img" aria-label="Dark map with three location pins">
+              <defs><pattern id="grid" width="42" height="42" patternUnits="userSpaceOnUse" patternTransform="rotate(22)"><path d="M 42 0 L 0 0 0 42" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/></pattern></defs>
+              <rect width="420" height="520" fill="#0b1115"/><rect width="420" height="520" fill="url(#grid)"/>
+              <path d="M-20 120 C90 160 140 90 230 150 S370 210 470 160" fill="none" stroke="#243039" stroke-width="9"/>
+              <path d="M40 480 C120 350 180 390 240 270 S330 130 430 95" fill="none" stroke="#1d282f" stroke-width="12"/>
+              <g class="pin pin--muted" transform="translate(120 155)"><path d="M0 0c-17 0-30 13-30 30 0 23 30 55 30 55s30-32 30-55C30 13 17 0 0 0z"/><circle cy="29" r="8"/></g>
+              <g class="pin pin--active" transform="translate(258 213)"><path d="M0 0c-17 0-30 13-30 30 0 23 30 55 30 55s30-32 30-55C30 13 17 0 0 0z"/><circle cy="29" r="8"/></g>
+              <g class="pin pin--muted" transform="translate(175 345)"><path d="M0 0c-17 0-30 13-30 30 0 23 30 55 30 55s30-32 30-55C30 13 17 0 0 0z"/><circle cy="29" r="8"/></g>
+            </svg>
+            <div class="map-controls"><button>＋</button><button>−</button><button>⌖</button></div>
+          </div>
+
+          <aside class="detail-panel" aria-live="polite">
+            <img
+              id="detail-image"
+              src="{{ url_for('static', filename='images/night-owl-detail.webp') }}"
+              alt="Night Owl Café interior"
+            />
+            <div class="detail-body">
+              <h2 id="detail-name">Night Owl Café</h2>
+              <p><span class="rating" id="detail-rating">4.8 ★★★★★</span> <span id="detail-reviews">(342)</span> · 0.4 mi</p>
+              <p>Café · $$</p>
+              <p class="open">● Open until 11:00 PM</p>
+              <hr />
+              <h3>Why it matches</h3>
+              <ul id="match-list"><li>Quiet atmosphere</li><li>Plenty of outlets</li><li>Reliable Wi-Fi</li><li>Late hours</li><li>Student friendly</li></ul>
+              <div class="detail-actions"><button>Preview details</button><button aria-label="Save place">♡</button></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+    <p class="product-preview-note">
+      Preview data shown for demonstration. Start exploring to search real places.
+    </p>
+
+    <svg
+      class="hero-transition"
+      viewBox="0 0 1600 170"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <path
+        d="
+          M0 0
+          C320 84 610 102 800 102
+          C990 102 1280 84 1600 0
+          V170
+          H0
+          Z
+        "
+      />
+    </svg>
+  </header>
+
+  <main class="light-section">
+    <section class="principles container reveal" aria-label="Why Instead">
+      <article>
+        <span class="principle-icon" aria-hidden="true">⌘</span>
+        <div>
+          <h3>Understands specifics</h3>
+          <p>Considers your budget, location, preferences, timing, and personal needs.</p>
+        </div>
+      </article>
+      <article>
+        <span class="principle-icon" aria-hidden="true">✦</span>
+        <div>
+          <h3>Explains every match</h3>
+          <p>See why each recommendation fits what you asked for.</p>
+        </div>
+      </article>
+      <article>
+        <span class="principle-icon" aria-hidden="true">◎</span>
+        <div>
+          <h3>Surfaces local knowledge</h3>
+          <p>Discover useful places and services that are easy to overlook.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="discovery-section container reveal" id="categories" aria-labelledby="discovery-title">
+      <header class="discovery-heading">
+        <h2 id="discovery-title">Discover <em>beyond</em> the obvious.</h2>
+        <p>Ask naturally. Instead finds the local places that truly fit your needs.</p>
+      </header>
+
+      <div class="example-searches">
+        <a class="example-card" href="#discover" data-category="Quiet café with outlets">
+          <svg aria-hidden="true"><use href="#icon-cafe"></use></svg>
+          <span>Quiet café<br />with outlets</span>
+        </a>
+        <a class="example-card" href="#discover" data-category="Korean grocery near campus">
+          <svg aria-hidden="true"><use href="#icon-basket"></use></svg>
+          <span>Korean grocery<br />near campus</span>
+        </a>
+        <a class="example-card" href="#discover" data-category="Barber for curly hair">
+          <svg aria-hidden="true"><use href="#icon-scissors"></use></svg>
+          <span>Barber for<br />curly hair</span>
+        </a>
+        <a class="example-card" href="#discover" data-category="Independent bookstore">
+          <svg aria-hidden="true"><use href="#icon-book"></use></svg>
+          <span>Independent<br />bookstore</span>
+        </a>
+        <a class="example-card" href="#discover" data-category="Plant nursery nearby">
+          <svg aria-hidden="true"><use href="#icon-plant"></use></svg>
+          <span>Plant nursery<br />nearby</span>
+        </a>
+      </div>
+
+      <p class="discovery-note">Don’t see what you need? Describe it your way. <strong>Instead</strong> handles the rest.</p>
+    </section>
+
+    <section class="business-panel container reveal" id="businesses" aria-labelledby="business-title">
+      <div class="business-icon" aria-hidden="true">
+        <svg><use href="#icon-store"></use></svg>
+      </div>
+
+      <div class="business-copy">
+        <h2 id="business-title">For local businesses</h2>
+        <p>Reach people when your place genuinely fits what they need.</p>
+      </div>
+
+      <ul class="business-benefits">
+        <li>Get discovered by the right customers</li>
+        <li>Showcase what makes you unique</li>
+        <li>Grow through meaningful connections</li>
       </ul>
 
-      <div class="nav-actions">
-        <a href="{{ url_for('auth.signup') }}" class="nav-cta">Start Exploring</a>
-      </div>
-    </div>
-  </nav>
-
-  <main>
-    <section class="hero">
-      <div class="hero-overlay"></div>
-
-      <div class="container hero-grid">
-        <div class="hero-content">
-          <div class="hero-badge">✦ AI-Powered Local Discovery</div>
-
-          <h1>
-            Your AI local guide
-            <br />
-            for everything nearby
-          </h1>
-
-          <p>
-            Ask for restaurants, groceries, salons, study spots, services,
-            and hidden gems.
-          </p>
-
-          <div class="hero-actions">
-            <a href="{{ url_for('auth.signup') }}" class="btn btn-primary">Start Exploring</a>
-          </div>
-        </div>
-      </div>
+      <a class="business-link" href="{{ url_for('auth.signup') }}">
+        Get started <span aria-hidden="true">→</span>
+      </a>
     </section>
 
-    <section class="how" id="how">
-      <div class="container">
-        <div class="section-heading">
-          <span class="section-kicker">Simple</span>
-          <h2>How it works</h2>
-          <p>One search box. Smarter local answers.</p>
-        </div>
-
-        <div class="how-layout workflow-card">
-          <div class="mini-chat" aria-label="Example conversation">
-            <div class="mini-chat-header">
-              <span class="ai-dot" aria-hidden="true"></span>
-              <span>Instead</span>
-            </div>
-
-            <div class="chat-bubble user-bubble">
-              <span class="typing-text text-1">I need a barber nearby.</span>
-            </div>
-
-            <div class="chat-bubble ai-bubble">
-              <span class="typing-text text-2">Found a few local options.</span>
-            </div>
-
-            <div class="chat-bubble user-bubble second">
-              <span class="typing-text text-3">Any affordable ones?</span>
-            </div>
-
-            <div class="chat-bubble ai-bubble second">
-              <span class="typing-text text-4">Yes, best budget-friendly matches nearby.</span>
-            </div>
-          </div>
-
-          <div class="steps">
-            <div class="step-card">
-              <div class="card-title">
-                <div class="step-icon" aria-hidden="true" data-lucide="message-circle"></div>
-                <h3>Ask naturally</h3>
-              </div>
-              <p>Describe what you need in your own words.</p>
-            </div>
-
-            <div class="step-card">
-              <div class="card-title">
-                <div class="step-icon" aria-hidden="true" data-lucide="brain"></div>
-                <h3>AI understands context</h3>
-              </div>
-              <p>It considers location, category, vibe, budget, and personal needs.</p>
-            </div>
-
-            <div class="step-card">
-              <div class="card-title">
-                <div class="step-icon" aria-hidden="true" data-lucide="compass"></div>
-                <h3>Get local matches</h3>
-              </div>
-              <p>Receive useful recommendations instead of generic search results.</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <section class="final-cta container reveal" id="start-exploring">
+      <div><h2>Your next favorite place<br />may already be <em>nearby.</em></h2><p>Start a conversation. Discover with Instead.</p></div>
+      <a class="button button--gold" href="{{ url_for('auth.signup') }}">
+        Start Exploring <span class="arrow" aria-hidden="true">→</span>
+      </a>
     </section>
 
-    <section class="categories" id="categories">
-      <div class="container">
-        <div class="section-heading">
-          <span class="section-kicker">Explore</span>
-          <h2>Explore local needs by category</h2>
-          <p>
-            Search by need, vibe, culture, budget, distance, or anything specific.
-          </p>
-        </div>
-
-        <div class="category-grid">
-          <article class="category-card">
-            <div class="card-title">
-              <div class="card-left">
-                <div class="category-icon" aria-hidden="true" data-lucide="chef-hat"></div>
-                <h3>Restaurants</h3>
-              </div>
-              <span class="card-arrow" aria-hidden="true" data-lucide="arrow-up-right"></span>
-            </div>
-            <p>Hidden gems, date spots, late-night food, and student-friendly meals.</p>
-          </article>
-
-          <article class="category-card">
-            <div class="card-title">
-              <div class="card-left">
-                <div class="category-icon" aria-hidden="true" data-lucide="store"></div>
-                <h3>Groceries</h3>
-              </div>
-              <span class="card-arrow" aria-hidden="true" data-lucide="arrow-up-right"></span>
-            </div>
-            <p>Local markets, specialty ingredients, cultural foods, and fresh produce.</p>
-          </article>
-
-          <article class="category-card">
-            <div class="card-title">
-              <div class="card-left">
-                <div class="category-icon" aria-hidden="true" data-lucide="sparkles"></div>
-                <h3>Hair &amp; Beauty</h3>
-              </div>
-              <span class="card-arrow" aria-hidden="true" data-lucide="arrow-up-right"></span>
-            </div>
-            <p>Find stylists for braids, curls, fades, locs, skincare, and more.</p>
-          </article>
-
-          <article class="category-card">
-            <div class="card-title">
-              <div class="card-left">
-                <div class="category-icon" aria-hidden="true" data-lucide="lamp"></div>
-                <h3>Study Spots</h3>
-              </div>
-              <span class="card-arrow" aria-hidden="true" data-lucide="arrow-up-right"></span>
-            </div>
-            <p>Quiet cafés, Wi-Fi, outlets, libraries, and late-night workspaces.</p>
-          </article>
-
-          <article class="category-card">
-            <div class="card-title">
-              <div class="card-left">
-                <div class="category-icon" aria-hidden="true" data-lucide="compass"></div>
-                <h3>Activities</h3>
-              </div>
-              <span class="card-arrow" aria-hidden="true" data-lucide="arrow-up-right"></span>
-            </div>
-            <p>Pickup games, parks, gyms, events, music, and things to do nearby.</p>
-          </article>
-
-          <article class="category-card">
-            <div class="card-title">
-              <div class="card-left">
-                <div class="category-icon" aria-hidden="true" data-lucide="building-2"></div>
-                <h3>Local Services</h3>
-              </div>
-              <span class="card-arrow" aria-hidden="true" data-lucide="arrow-up-right"></span>
-            </div>
-            <p>Tailors, mechanics, phone repair, clinics, moving help, and more.</p>
-          </article>
-        </div>
-      </div>
-    </section>
+    <footer class="footer container">
+      <a class="brand brand--dark" href="{{ url_for('main.index') }}">
+        <span class="brand-mark">
+          <img
+            src="{{ url_for('static', filename='images/instead-logo.svg') }}"
+            alt=""
+          />
+        </span>
+        <span>Instead</span>
+      </a>
+      <nav aria-label="Footer">
+        <a href="{{ url_for('main.privacy') }}">Privacy</a>
+        <a href="{{ url_for('main.terms') }}">Terms</a>
+      </nav>
+      <small>© 2026 Instead</small>
+    </footer>
   </main>
-
-  <footer>
-    <div class="container footer-inner">
-      <p>© 2026 Instead.</p>
-      <p>Built for newcomers, students, and curious locals.</p>
-    </div>
-  </footer>
-
-  <script defer src="https://unpkg.com/lucide@1.24.0"></script>
-  <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
