@@ -114,6 +114,45 @@ def test_authenticated_dashboard_uses_instead_logo(
     )
 
 
+def test_dashboard_contains_result_filter_controls(
+    client,
+    app,
+):
+    authenticate_client(client, app)
+
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+
+    html = response.get_data(as_text=True)
+
+    assert 'data-filter="all"' in html
+    assert 'data-filter="budget"' in html
+    assert 'data-filter="moderate"' in html
+    assert 'data-filter="premium"' in html
+    assert 'data-filter="open"' in html
+    assert 'data-filter="rated"' in html
+    assert 'data-filter="nearby"' in html
+
+
+def test_dashboard_javascript_implements_result_filters(
+    client,
+):
+    response = client.get("/static/js/dashboard.js")
+
+    assert response.status_code == 200
+
+    javascript = response.get_data(as_text=True)
+
+    assert "const activeResultFilters = new Set()" in javascript
+    assert "const FILTER_SETTINGS = Object.freeze" in javascript
+    assert "const placeMatchesActiveFilters" in javascript
+    assert "const getFilteredSearchPlaces" in javascript
+    assert "const renderFilteredSearchResults" in javascript
+    assert "const resetResultFilters" in javascript
+    assert "No places match these filters" in javascript
+
+
 def test_dashboard_javascript_uses_assistant_response(client):
     response = client.get(
         "/static/js/dashboard.js"
