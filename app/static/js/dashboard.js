@@ -453,6 +453,10 @@ let selectedLocation =
   };
 
 let PLACES = {};
+let currentSearchPlaces = [];
+
+const activeResultFilters = new Set();
+
 let activeDashboardView = "explore";
 let discoveryCacheKey = null;
 let discoveryMoodPreviews = new Map();
@@ -2379,6 +2383,144 @@ const renderMapMarkers = async (places) => {
   }
 };
 
+const FILTER_SETTINGS = Object.freeze({
+  budget: {
+    priceLevels: [0, 1],
+  },
+  moderate: {
+    priceLevels: [2],
+  },
+  premium: {
+    priceLevels: [3, 4],
+  },
+  open: {
+    openNow: true,
+  },
+  rated: {
+    minimumRating: 4.5,
+  },
+  nearby: {
+    maximumDistanceMiles: 1.5,
+  },
+});
+
+const placeMatchesActiveFilters = (place) => {
+  if (activeResultFilters.size === 0) {
+    return true;
+  }
+
+  const selectedPriceLevels = new Set();
+
+  ["budget", "moderate", "premium"].forEach(
+    (filterName) => {
+      if (!activeResultFilters.has(filterName)) {
+        return;
+      }
+
+      FILTER_SETTINGS[
+        filterName
+      ].priceLevels.forEach((priceLevel) => {
+        selectedPriceLevels.add(priceLevel);
+      });
+    }
+  );
+
+  if (selectedPriceLevels.size > 0) {
+    const priceLevel = Number(place.price_level);
+
+    if (
+      !Number.isFinite(priceLevel) ||
+      !selectedPriceLevels.has(priceLevel)
+    ) {
+      return false;
+    }
+  }
+
+  if (
+    activeResultFilters.has("open") &&
+    place.open_now !== true
+  ) {
+    return false;
+  }
+
+  if (activeResultFilters.has("rated")) {
+    const rating = Number(place.rating);
+
+    if (
+      !Number.isFinite(rating) ||
+      rating < FILTER_SETTINGS.rated.minimumRating
+    ) {
+      return false;
+    }
+  }
+
+  if (activeResultFilters.has("nearby")) {
+    const distance = Number(place.distance_miles);
+
+    if (
+      !Number.isFinite(distance) ||
+      distance >
+        FILTER_SETTINGS.nearby.maximumDistanceMiles
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const getFilteredSearchPlaces = () =>
+  currentSearchPlaces.filter(
+    placeMatchesActiveFilters
+  );
+
+const updateFilterResultsState = (
+  filteredPlaces
+) => {
+  if (
+    currentSearchPlaces.length === 0 ||
+    filteredPlaces.length > 0
+  ) {
+    hideResultsState();
+    return;
+  }
+
+  showResultsState({
+    title: "No places match these filters",
+    message:
+      "Remove one or more filters to see additional results.",
+  });
+};
+
+const renderFilteredSearchResults = () => {
+  const filteredPlaces =
+    getFilteredSearchPlaces();
+
+  updateFilterResultsState(filteredPlaces);
+  applySearchResults(filteredPlaces);
+};
+
+const resetResultFilters = () => {
+  activeResultFilters.clear();
+
+  document
+    .querySelectorAll(SELECTORS.filterChip)
+    .forEach((chip) => {
+      const isAllFilter =
+        chip.dataset.filter === "all";
+
+      chip.classList.toggle(
+        "filter-chip--active",
+        isAllFilter
+      );
+
+      chip.setAttribute(
+        "aria-pressed",
+        String(isAllFilter)
+      );
+    });
+};
+
 const initializeFilterChips = () => {
   const filterChips = document.querySelectorAll(
     SELECTORS.filterChip
@@ -2386,13 +2528,56 @@ const initializeFilterChips = () => {
 
   filterChips.forEach((chip) => {
     chip.addEventListener("click", () => {
-      filterChips.forEach((currentChip) => {
-        currentChip.classList.remove("filter-chip--active");
-        currentChip.setAttribute("aria-pressed", "false");
-      });
+      const filterName = chip.dataset.filter;
 
-      chip.classList.add("filter-chip--active");
-      chip.setAttribute("aria-pressed", "true");
+      if (!filterName) {
+        return;
+      }
+
+      if (filterName === "all") {
+        resetResultFilters();
+        renderFilteredSearchResults();
+        return;
+      }
+
+      const allFilter = document.querySelector(
+        '[data-filter="all"]'
+      );
+
+      if (activeResultFilters.has(filterName)) {
+        activeResultFilters.delete(filterName);
+        chip.classList.remove(
+          "filter-chip--active"
+        );
+        chip.setAttribute(
+          "aria-pressed",
+          "false"
+        );
+      } else {
+        activeResultFilters.add(filterName);
+        chip.classList.add(
+          "filter-chip--active"
+        );
+        chip.setAttribute(
+          "aria-pressed",
+          "true"
+        );
+      }
+
+      const hasActiveFilters =
+        activeResultFilters.size > 0;
+
+      allFilter?.classList.toggle(
+        "filter-chip--active",
+        !hasActiveFilters
+      );
+
+      allFilter?.setAttribute(
+        "aria-pressed",
+        String(!hasActiveFilters)
+      );
+
+      renderFilteredSearchResults();
     });
   });
 };
@@ -3604,6 +3789,7 @@ const applySearchResults = (places) => {
 };
 
 const clearSearchResults = () => {
+  currentSearchPlaces = [];
   applySearchResults([]);
 };
 
@@ -3731,6 +3917,7 @@ const initializeDashboardSearch = () => {
           : null;
 
       if (searchResponse.results.length === 0) {
+        resetResultFilters();
         clearSearchResults();
 
         updateConversationMessage(
@@ -3755,7 +3942,12 @@ const initializeDashboardSearch = () => {
         `Search complete. Found ` +
         `${searchResponse.result_count} results.`;
 
-      applySearchResults(searchResponse.results);
+      currentSearchPlaces = [
+        ...searchResponse.results,
+      ];
+
+      resetResultFilters();
+      renderFilteredSearchResults();
 
       const assistantResponse =
         typeof searchResponse.assistant_response === "string"
@@ -4128,6 +4320,7 @@ const initializeNewChat = () => {
     setDashboardView("explore");
 
     activeSearchSessionId = null;
+    resetResultFilters();
     latestSearchRequestId += 1;
 
     clearSearchResults();
