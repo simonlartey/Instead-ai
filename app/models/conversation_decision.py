@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from app.models.conversation_action import (
     ConversationAction,
 )
+from app.models.search_filter_updates import (
+    SearchFilterUpdates,
+)
 
 
 @dataclass(frozen=True)
@@ -12,6 +15,7 @@ class ConversationDecision:
     action: ConversationAction
     rewritten_query: str | None = None
     clarification_question: str | None = None
+    filter_updates: SearchFilterUpdates | None = None
 
     def __post_init__(self) -> None:
         rewritten_query = self._normalize_optional_text(
@@ -46,6 +50,24 @@ class ConversationDecision:
         ):
             raise ValueError(
                 "CLARIFY requires a clarification question."
+            )
+
+        if self.action is ConversationAction.REFINE_RESULTS:
+            if (
+                self.filter_updates is None
+                or not self.filter_updates.has_updates()
+            ):
+                raise ValueError(
+                    "REFINE_RESULTS requires filter updates."
+                )
+
+        if (
+            self.action is not ConversationAction.REFINE_RESULTS
+            and self.filter_updates is not None
+        ):
+            raise ValueError(
+                "Filter updates are only valid for "
+                "REFINE_RESULTS."
             )
 
     @staticmethod

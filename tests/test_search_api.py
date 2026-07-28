@@ -8,6 +8,9 @@ from app.models.conversation_decision import (
     ConversationDecision,
 )
 from app.models.conversation_message import MessageRole
+from app.models.search_filter_updates import (
+    SearchFilterUpdates,
+)
 from app.models.search_intent import SearchIntent
 from app.providers.places.errors import PlacesProviderError
 
@@ -922,6 +925,9 @@ def test_continue_search_returns_unsupported_refine_action(
     conversation_orchestrator.decide.return_value = (
         ConversationDecision(
             action=ConversationAction.REFINE_RESULTS,
+            filter_updates=SearchFilterUpdates(
+                price_levels=(1, 2),
+            ),
         )
     )
 

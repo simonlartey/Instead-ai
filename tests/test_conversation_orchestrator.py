@@ -8,6 +8,9 @@ from app.models.conversation_decision import (
 )
 from app.models.conversation_message import MessageRole
 from app.models.search_intent import SearchIntent
+from app.models.search_filter_updates import (
+    SearchFilterUpdates,
+)
 from app.models.search_session import SearchSession
 from app.providers.assistant.fake_conversation_decision_provider import (
     FakeConversationDecisionProvider,
@@ -60,6 +63,9 @@ def create_session() -> SearchSession:
         ),
         ConversationDecision(
             action=ConversationAction.REFINE_RESULTS,
+            filter_updates=SearchFilterUpdates(
+                open_now=True,
+            ),
         ),
         ConversationDecision(
             action=ConversationAction.RUN_NEW_SEARCH,

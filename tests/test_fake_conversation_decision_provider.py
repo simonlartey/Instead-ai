@@ -4,6 +4,9 @@ from app.models.conversation_action import (
 from app.models.conversation_decision import (
     ConversationDecision,
 )
+from app.models.search_filter_updates import (
+    SearchFilterUpdates,
+)
 from app.models.search_intent import SearchIntent
 from app.providers.assistant.fake_conversation_decision_provider import (
     FakeConversationDecisionProvider,
@@ -41,6 +44,9 @@ def test_fake_provider_returns_configured_decision():
 def test_fake_provider_records_decision_inputs():
     decision = ConversationDecision(
         action=ConversationAction.REFINE_RESULTS,
+        filter_updates=SearchFilterUpdates(
+            open_now=True,
+        ),
     )
 
     provider = FakeConversationDecisionProvider(
