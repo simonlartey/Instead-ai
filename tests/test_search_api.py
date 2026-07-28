@@ -6,6 +6,14 @@ from app.models.search_intent import SearchIntent
 from app.providers.places.errors import PlacesProviderError
 
 
+class StubSearchService:
+    def __init__(self, response_payload):
+        self.response_payload = response_payload
+
+    def search(self, search_request):
+        return self.response_payload
+
+
 def test_search_api_returns_results(client):
     response = client.post(
         "/api/v1/search",
@@ -52,6 +60,170 @@ def test_search_api_applies_server_side_filters(client):
         place["id"]
         for place in data["results"]
     ] == ["elevate-cuts"]
+
+
+def test_search_api_returns_exact_filter_status(
+    client,
+    monkeypatch,
+):
+    response_payload = {
+        "search_id": "search-123",
+        "query": "coffee",
+        "result_count": 1,
+        "results": [
+            {
+                "id": "place-1",
+                "name": "Coffee Place",
+            }
+        ],
+        "assistant_response": "Here is one option.",
+        "filter_status": {
+            "mode": "exact",
+            "title": None,
+            "message": None,
+        },
+    }
+
+    monkeypatch.setattr(
+        "app.routes.api.search.SearchService",
+        lambda **kwargs: StubSearchService(
+            response_payload
+        ),
+    )
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "coffee",
+            "filters": {
+                "open_now": True,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["filter_status"] == {
+        "mode": "exact",
+        "title": None,
+        "message": None,
+    }
+
+
+def test_search_api_returns_fallback_filter_status(
+    client,
+    monkeypatch,
+):
+    response_payload = {
+        "search_id": "search-123",
+        "query": "affordable barber",
+        "result_count": 2,
+        "results": [
+            {
+                "id": "place-1",
+                "name": "First Barber",
+            },
+            {
+                "id": "place-2",
+                "name": "Second Barber",
+            },
+        ],
+        "assistant_response": (
+            "Pricing could not be verified for these options."
+        ),
+        "filter_status": {
+            "mode": "fallback",
+            "title": (
+                "Selected pricing could not be verified"
+            ),
+            "message": (
+                "Showing relevant alternatives because the "
+                "retrieved places did not include verified pricing "
+                "in the selected range."
+            ),
+        },
+    }
+
+    monkeypatch.setattr(
+        "app.routes.api.search.SearchService",
+        lambda **kwargs: StubSearchService(
+            response_payload
+        ),
+    )
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "barber",
+            "filters": {
+                "price_levels": [1],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+
+    assert data["result_count"] == 2
+    assert data["filter_status"]["mode"] == "fallback"
+    assert data["filter_status"]["title"] == (
+        "Selected pricing could not be verified"
+    )
+    assert "relevant alternatives" in (
+        data["filter_status"]["message"]
+    )
+
+
+def test_search_api_returns_empty_filter_status(
+    client,
+    monkeypatch,
+):
+    response_payload = {
+        "search_id": "search-123",
+        "query": "rare service",
+        "result_count": 0,
+        "results": [],
+        "assistant_response": "No places were found.",
+        "filter_status": {
+            "mode": "empty",
+            "title": "No matching places found",
+            "message": (
+                "Try changing your wording or broadening "
+                "your search."
+            ),
+        },
+    }
+
+    monkeypatch.setattr(
+        "app.routes.api.search.SearchService",
+        lambda **kwargs: StubSearchService(
+            response_payload
+        ),
+    )
+
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "rare service",
+            "filters": {
+                "open_now": True,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+
+    assert data["results"] == []
+    assert data["filter_status"] == {
+        "mode": "empty",
+        "title": "No matching places found",
+        "message": (
+            "Try changing your wording or broadening "
+            "your search."
+        ),
+    }
 
 
 def test_search_api_creates_conversation_session(
