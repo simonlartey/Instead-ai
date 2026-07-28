@@ -133,6 +133,9 @@ def test_dashboard_contains_result_filter_controls(
     assert 'data-filter="open"' in html
     assert 'data-filter="rated"' in html
     assert 'data-filter="nearby"' in html
+    assert "Affordable" in html
+    assert "Mid-Range" in html
+    assert "Premium" in html
 
 
 def test_dashboard_javascript_implements_result_filters(
