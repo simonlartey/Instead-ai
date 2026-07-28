@@ -1,5 +1,9 @@
 from app.models.search_intent import SearchIntent
-from app.schemas.search import SearchLocation, SearchRequest
+from app.schemas.search import (
+    SearchFilters,
+    SearchLocation,
+    SearchRequest,
+)
 from app.services.search_service import SearchService
 
 
@@ -85,6 +89,24 @@ class RecordingConversationManager:
             session_id = "session-123"
 
         return Session()
+
+
+class RecordingPlaceFilter:
+    """Record places and filters passed by SearchService."""
+
+    def __init__(self, filtered_places=None):
+        self.received_places = None
+        self.received_filters = None
+        self.filtered_places = filtered_places
+
+    def apply(self, places, filters):
+        self.received_places = places
+        self.received_filters = filters
+
+        if self.filtered_places is not None:
+            return self.filtered_places
+
+        return list(places)
 
 
 def test_search_service_returns_expected_response():
@@ -461,3 +483,219 @@ def test_search_service_creates_conversation_session():
         conversation_manager.arguments["assistant_response"]
         == "Campus Cafe is the strongest match."
     )
+
+
+def test_search_service_passes_request_filters_to_place_filter():
+    provider_results = [
+        {
+            "id": "first-place",
+            "name": "First Place",
+        }
+    ]
+
+    places_provider = StaticPlacesProvider(
+        provider_results
+    )
+    place_filter = RecordingPlaceFilter()
+
+    service = SearchService(
+        places_provider=places_provider,
+        place_filter=place_filter,
+    )
+
+    filters = SearchFilters(
+        price_levels=(1, 2),
+        open_now=True,
+        minimum_rating=4.5,
+        max_distance_meters=2400,
+    )
+
+    service.search(
+        SearchRequest(
+            query="Coffee shop",
+            filters=filters,
+        )
+    )
+
+    assert place_filter.received_places == provider_results
+    assert place_filter.received_filters == filters
+
+
+def test_search_service_ranks_filtered_results():
+    class RecordingRanker:
+        def __init__(self):
+            self.received_places = None
+
+        def rank(
+            self,
+            *,
+            query,
+            places,
+            original_query=None,
+        ):
+            self.received_places = places
+            return list(places)
+
+    provider_results = [
+        {
+            "id": "first-place",
+            "name": "First Place",
+        },
+        {
+            "id": "second-place",
+            "name": "Second Place",
+        },
+    ]
+
+    filtered_results = [
+        {
+            "id": "second-place",
+            "name": "Second Place",
+        }
+    ]
+
+    ranker = RecordingRanker()
+
+    service = SearchService(
+        places_provider=StaticPlacesProvider(
+            provider_results
+        ),
+        place_filter=RecordingPlaceFilter(
+            filtered_places=filtered_results
+        ),
+        relevance_ranker=ranker,
+    )
+
+    response = service.search(
+        SearchRequest(
+            query="Coffee shop",
+            filters=SearchFilters(
+                open_now=True,
+            ),
+        )
+    )
+
+    assert ranker.received_places == filtered_results
+    assert response["results"] == filtered_results
+    assert response["result_count"] == 1
+
+
+def test_search_service_generates_response_from_filtered_results():
+    provider_results = [
+        {
+            "id": "first-place",
+            "name": "First Place",
+        },
+        {
+            "id": "second-place",
+            "name": "Second Place",
+        },
+    ]
+
+    filtered_results = [
+        {
+            "id": "second-place",
+            "name": "Second Place",
+        }
+    ]
+
+    assistant_provider = RecordingAssistantProvider()
+
+    service = SearchService(
+        places_provider=StaticPlacesProvider(
+            provider_results
+        ),
+        assistant_provider=assistant_provider,
+        place_filter=RecordingPlaceFilter(
+            filtered_places=filtered_results
+        ),
+    )
+
+    service.search(
+        SearchRequest(
+            query="Coffee shop",
+            filters=SearchFilters(
+                minimum_rating=4.5,
+            ),
+        )
+    )
+
+    assert assistant_provider.response_places == filtered_results
+
+
+def test_search_service_stores_filtered_places_in_session():
+    provider_results = [
+        {
+            "id": "first-place",
+            "name": "First Place",
+        },
+        {
+            "id": "second-place",
+            "name": "Second Place",
+        },
+    ]
+
+    filtered_results = [
+        {
+            "id": "second-place",
+            "name": "Second Place",
+        }
+    ]
+
+    conversation_manager = RecordingConversationManager()
+
+    service = SearchService(
+        places_provider=StaticPlacesProvider(
+            provider_results
+        ),
+        conversation_manager=conversation_manager,
+        place_filter=RecordingPlaceFilter(
+            filtered_places=filtered_results
+        ),
+    )
+
+    service.search(
+        SearchRequest(
+            query="Coffee shop",
+            filters=SearchFilters(
+                open_now=True,
+            ),
+        )
+    )
+
+    assert conversation_manager.arguments["places"] == (
+        filtered_results
+    )
+    assert conversation_manager.arguments[
+        "ranked_places"
+    ] == filtered_results
+
+
+def test_search_service_handles_filters_removing_all_results():
+    provider_results = [
+        {
+            "id": "first-place",
+            "name": "First Place",
+        }
+    ]
+
+    service = SearchService(
+        places_provider=StaticPlacesProvider(
+            provider_results
+        ),
+        place_filter=RecordingPlaceFilter(
+            filtered_places=[]
+        ),
+    )
+
+    response = service.search(
+        SearchRequest(
+            query="Coffee shop",
+            filters=SearchFilters(
+                open_now=True,
+            ),
+        )
+    )
+
+    assert response["result_count"] == 0
+    assert response["results"] == []
