@@ -28,6 +28,32 @@ def test_search_api_returns_results(client):
     assert str(UUID(data["search_id"])) == data["search_id"]
 
 
+def test_search_api_applies_server_side_filters(client):
+    response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Barber",
+            "filters": {
+                "price_levels": [1],
+                "open_now": True,
+                "minimum_rating": 4.5,
+                "max_distance_meters": 2000,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+
+    assert data["result_count"] == 1
+
+    assert [
+        place["id"]
+        for place in data["results"]
+    ] == ["elevate-cuts"]
+
+
 def test_search_api_creates_conversation_session(
     app,
     client,
