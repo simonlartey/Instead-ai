@@ -159,6 +159,12 @@ def test_dashboard_javascript_implements_result_filters(
     assert 'currentFilterStatus?.mode === "fallback"' in javascript
     assert "searchResponse.filter_status" in javascript
     assert "Showing relevant alternatives" in javascript
+    assert "const formatPriceLevel" in javascript
+    assert '"Affordable"' in javascript
+    assert '"Mid-Range"' in javascript
+    assert '"Premium"' in javascript
+    assert '"Luxury"' in javascript
+    assert '${labels[priceLevel]}' in javascript
 
 
 def test_dashboard_javascript_sends_filters_to_search_api(
