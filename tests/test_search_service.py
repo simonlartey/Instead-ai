@@ -488,11 +488,21 @@ def test_search_service_creates_conversation_session():
         conversation_manager=conversation_manager,
     )
 
-    response = service.search(
-        SearchRequest(
-            query="Find somewhere quiet to study"
-        )
+    search_request = SearchRequest(
+        query="Find somewhere quiet to study",
+        location=SearchLocation(
+            latitude=43.6591,
+            longitude=-70.2568,
+        ),
+        filters=SearchFilters(
+            price_levels=(1, 2),
+            open_now=True,
+            minimum_rating=4.0,
+            max_distance_meters=3200,
+        ),
     )
+
+    response = service.search(search_request)
 
     assert response["search_id"] == "session-123"
 
@@ -504,6 +514,16 @@ def test_search_service_creates_conversation_session():
     assert (
         conversation_manager.arguments["assistant_response"]
         == "Campus Cafe is the strongest match."
+    )
+
+    assert (
+        conversation_manager.arguments["location"]
+        == search_request.location
+    )
+
+    assert (
+        conversation_manager.arguments["filters"]
+        == search_request.filters
     )
 
 

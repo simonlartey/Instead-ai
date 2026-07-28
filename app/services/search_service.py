@@ -70,6 +70,8 @@ class SearchService:
             session = self.conversation_manager.start_session(
                 original_query=search_request.query,
                 intent=intent,
+                location=search_request.location,
+                filters=search_request.filters,
                 places=filtered_results,
                 ranked_places=ranked_results,
                 assistant_response=assistant_response,

@@ -6,6 +6,10 @@ from app.models.search_intent import SearchIntent
 from app.repositories.in_memory_search_session import (
     InMemorySearchSessionRepository,
 )
+from app.schemas.search import (
+    SearchFilters,
+    SearchLocation,
+)
 from app.services.conversation_manager import ConversationManager
 
 
@@ -21,6 +25,16 @@ def create_intent() -> SearchIntent:
 def test_start_session_stores_search_state():
     repository = InMemorySearchSessionRepository()
     manager = ConversationManager(repository)
+
+    location = SearchLocation(
+        latitude=43.6591,
+        longitude=-70.2568,
+    )
+
+    filters = SearchFilters(
+        price_levels=(1,),
+        open_now=True,
+    )
 
     places = [
         {
@@ -39,12 +53,16 @@ def test_start_session_stores_search_state():
     session = manager.start_session(
         original_query="Find a quiet cafe",
         intent=create_intent(),
+        location=location,
+        filters=filters,
         places=places,
         ranked_places=ranked_places,
     )
 
     assert session.original_query == "Find a quiet cafe"
     assert session.intent == create_intent()
+    assert session.location == location
+    assert session.filters == filters
     assert session.places == places
     assert session.ranked_places == ranked_places
     assert repository.get(session.session_id) is session

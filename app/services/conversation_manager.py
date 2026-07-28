@@ -4,6 +4,10 @@ from app.models.conversation_message import MessageRole
 from app.models.search_intent import SearchIntent
 from app.models.search_session import SearchSession
 from app.repositories.search_session import SearchSessionRepository
+from app.schemas.search import (
+    SearchFilters,
+    SearchLocation,
+)
 
 
 class ConversationManager:
@@ -21,11 +25,15 @@ class ConversationManager:
         intent: SearchIntent,
         places: list[dict[str, Any]],
         ranked_places: list[dict[str, Any]],
+        location: SearchLocation | None = None,
+        filters: SearchFilters | None = None,
         assistant_response: str | None = None,
     ) -> SearchSession:
         session = SearchSession(
             original_query=original_query,
             intent=intent,
+            location=location,
+            filters=filters or SearchFilters(),
             places=places,
             ranked_places=ranked_places,
         )
