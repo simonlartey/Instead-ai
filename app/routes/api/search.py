@@ -6,6 +6,9 @@ from flask import (
     request,
 )
 
+from app.models.conversation_action import (
+    ConversationAction,
+)
 from app.providers.places.errors import PlacesProviderError
 from app.schemas.discovery import DiscoveryRequest
 from app.schemas.search import SearchRequest, SearchValidationError
@@ -151,6 +154,10 @@ def continue_search(session_id: str):
         "assistant_provider"
     ]
 
+    conversation_orchestrator = current_app.extensions[
+        "conversation_orchestrator"
+    ]
+
     session = conversation_manager.get_session(
         session_id
     )
@@ -164,6 +171,41 @@ def continue_search(session_id: str):
                 }
             }
         ), 404
+
+    try:
+        decision = conversation_orchestrator.decide(
+            session=session,
+            message=message,
+        )
+    except Exception:
+        current_app.logger.exception(
+            "Conversation decision failed."
+        )
+
+        return jsonify(
+            {
+                "error": {
+                    "code": "conversation_decision_unavailable",
+                    "message": (
+                        "The search assistant could not interpret "
+                        "that follow-up message."
+                    ),
+                }
+            }
+        ), 503
+
+    if decision.action is not ConversationAction.ANSWER_EXISTING:
+        return jsonify(
+            {
+                "error": {
+                    "code": "conversation_action_not_supported",
+                    "message": (
+                        "This type of follow-up is not supported yet."
+                    ),
+                    "action": decision.action.value,
+                }
+            }
+        ), 409
 
     history = conversation_manager.get_conversation_history(
         session_id

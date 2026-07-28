@@ -1,6 +1,12 @@
 from unittest.mock import Mock
 from uuid import UUID
 
+from app.models.conversation_action import (
+    ConversationAction,
+)
+from app.models.conversation_decision import (
+    ConversationDecision,
+)
 from app.models.conversation_message import MessageRole
 from app.models.search_intent import SearchIntent
 from app.providers.places.errors import PlacesProviderError
@@ -718,6 +724,17 @@ def test_continue_search_returns_response(
 
     session_id = search_response.get_json()["search_id"]
 
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.ANSWER_EXISTING,
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
     response = client.post(
         f"/api/v1/search/{session_id}/continue",
         json={
@@ -744,6 +761,126 @@ def test_continue_search_returns_response(
     session = repository.get(session_id)
     assert session is not None
     assert len(session.conversation_history) == 4
+
+    conversation_orchestrator.decide.assert_called_once()
+
+    decision_call = (
+        conversation_orchestrator.decide.call_args.kwargs
+    )
+
+    assert decision_call["session"].session_id == session_id
+    assert decision_call["message"] == (
+        "Which one is cheaper?"
+    )
+
+
+def test_continue_search_handles_decision_failure(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.side_effect = (
+        RuntimeError("Decision failed.")
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Show me something better",
+        },
+    )
+
+    assert response.status_code == 503
+
+    assert response.get_json() == {
+        "error": {
+            "code": "conversation_decision_unavailable",
+            "message": (
+                "The search assistant could not interpret "
+                "that follow-up message."
+            ),
+        }
+    }
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    session = repository.get(session_id)
+
+    assert session is not None
+    assert len(session.conversation_history) == 2
+
+
+def test_continue_search_returns_unsupported_action(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.RUN_NEW_SEARCH,
+            rewritten_query="barber near campus",
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Find a barber instead",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.get_json() == {
+        "error": {
+            "code": "conversation_action_not_supported",
+            "message": (
+                "This type of follow-up is not supported yet."
+            ),
+            "action": "run_new_search",
+        }
+    }
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    session = repository.get(session_id)
+
+    assert session is not None
+    assert len(session.conversation_history) == 2
 
 
 def test_continue_search_requires_message(
