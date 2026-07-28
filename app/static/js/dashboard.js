@@ -1061,11 +1061,21 @@ const buildSearchResultMessage = (
 };
 
 const formatPriceLevel = (priceLevel) => {
-  if (!Number.isInteger(priceLevel) || priceLevel < 1) {
+  const labels = {
+    1: "Affordable",
+    2: "Mid-Range",
+    3: "Premium",
+    4: "Luxury",
+  };
+
+  if (
+    !Number.isInteger(priceLevel) ||
+    !labels[priceLevel]
+  ) {
     return "";
   }
 
-  return "$".repeat(priceLevel);
+  return labels[priceLevel];
 };
 
 const formatRating = (rating) => {
