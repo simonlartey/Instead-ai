@@ -454,6 +454,7 @@ let selectedLocation =
 
 let PLACES = {};
 let currentSearchPlaces = [];
+let currentFilterStatus = null;
 let currentSearchQuery = null;
 let lastAppliedFilterSignature = "";
 
@@ -2525,6 +2526,42 @@ const getFilteredSearchPlaces = () =>
     placeMatchesActiveFilters
   );
 
+const normalizeFilterStatus = (
+  filterStatus
+) => {
+  if (
+    !filterStatus ||
+    typeof filterStatus !== "object"
+  ) {
+    return null;
+  }
+
+  const mode =
+    typeof filterStatus.mode === "string"
+      ? filterStatus.mode
+      : null;
+
+  if (
+    mode !== "exact" &&
+    mode !== "fallback" &&
+    mode !== "empty"
+  ) {
+    return null;
+  }
+
+  return {
+    mode,
+    title:
+      typeof filterStatus.title === "string"
+        ? filterStatus.title.trim()
+        : "",
+    message:
+      typeof filterStatus.message === "string"
+        ? filterStatus.message.trim()
+        : "",
+  };
+};
+
 const updateFilterResultsState = (
   filteredPlaces
 ) => {
@@ -2544,6 +2581,26 @@ const updateFilterResultsState = (
 };
 
 const renderFilteredSearchResults = () => {
+  if (
+    currentFilterStatus?.mode === "fallback"
+  ) {
+    applySearchResults(currentSearchPlaces);
+
+    showResultsState({
+      title:
+        currentFilterStatus.title ||
+        "Showing relevant alternatives",
+      message:
+        currentFilterStatus.message ||
+        (
+          "No exact matches were found for every " +
+          "selected filter."
+        ),
+    });
+
+    return;
+  }
+
   const filteredPlaces =
     getFilteredSearchPlaces();
 
@@ -2645,18 +2702,35 @@ const refreshSearchWithActiveFilters = async () => {
       ? [...searchResponse.results]
       : [];
 
+    currentFilterStatus =
+      normalizeFilterStatus(
+        searchResponse.filter_status
+      );
+
     if (currentSearchPlaces.length === 0) {
       applySearchResults([]);
 
       showResultsState({
         title:
-          activeResultFilters.size > 0
-            ? "No places match these filters"
-            : "No matching places found",
+          currentFilterStatus?.title ||
+          (
+            activeResultFilters.size > 0
+              ? "No places match these filters"
+              : "No matching places found"
+          ),
         message:
-          activeResultFilters.size > 0
-            ? "Remove one or more filters to see additional results."
-            : "Try changing your wording or broadening your search.",
+          currentFilterStatus?.message ||
+          (
+            activeResultFilters.size > 0
+              ? (
+                  "Remove one or more filters to see " +
+                  "additional results."
+                )
+              : (
+                  "Try changing your wording or " +
+                  "broadening your search."
+                )
+          ),
       });
 
       if (status) {
@@ -3982,6 +4056,7 @@ const applySearchResults = (places) => {
 
 const clearSearchResults = () => {
   currentSearchPlaces = [];
+  currentFilterStatus = null;
   applySearchResults([]);
 };
 
@@ -4115,8 +4190,18 @@ const initializeDashboardSearch = () => {
           ? searchResponse.search_id
           : null;
 
+      currentFilterStatus =
+        normalizeFilterStatus(
+          searchResponse.filter_status
+        );
+
       if (searchResponse.results.length === 0) {
+        const emptyFilterStatus =
+          currentFilterStatus;
+
         clearSearchResults();
+        currentFilterStatus =
+          emptyFilterStatus;
 
         updateConversationMessage(
           pendingAssistantMessage,
@@ -4125,9 +4210,15 @@ const initializeDashboardSearch = () => {
         );
 
         showResultsState({
-          title: "No matching places found",
+          title:
+            currentFilterStatus?.title ||
+            "No matching places found",
           message:
-            "Try changing your wording, increasing the distance, or removing one preference.",
+            currentFilterStatus?.message ||
+            (
+              "Try changing your wording, increasing " +
+              "the distance, or removing one preference."
+            ),
         });
 
         status.textContent =
@@ -4143,6 +4234,11 @@ const initializeDashboardSearch = () => {
       currentSearchPlaces = [
         ...searchResponse.results,
       ];
+
+      currentFilterStatus =
+        normalizeFilterStatus(
+          searchResponse.filter_status
+        );
 
       renderFilteredSearchResults();
 
@@ -4518,6 +4614,7 @@ const initializeNewChat = () => {
 
     activeSearchSessionId = null;
     currentSearchQuery = null;
+    currentFilterStatus = null;
     lastAppliedFilterSignature = "";
     resetResultFilters();
     latestSearchRequestId += 1;

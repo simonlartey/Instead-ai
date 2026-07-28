@@ -1,5 +1,8 @@
 from app.schemas.search import SearchFilters
-from app.services.place_filter import PlaceFilter
+from app.services.place_filter import (
+    PlaceFilter,
+    PlaceFilterResult,
+)
 
 
 def make_place(
@@ -296,3 +299,261 @@ def test_place_filter_does_not_modify_original_places():
     )
 
     assert places == original_places
+
+
+def test_place_filter_result_returns_exact_matches():
+    places = [
+        make_place(
+            place_id="affordable",
+            price_level=1,
+        ),
+        make_place(
+            place_id="premium",
+            price_level=4,
+        ),
+    ]
+
+    result = PlaceFilter().apply_with_fallback(
+        places,
+        SearchFilters(
+            price_levels=(1,),
+        ),
+    )
+
+    assert isinstance(result, PlaceFilterResult)
+    assert result.mode == "exact"
+    assert [
+        place["id"]
+        for place in result.places
+    ] == ["affordable"]
+    assert result.title is None
+    assert result.message is None
+
+
+def test_place_filter_prioritizes_unknown_price_fallbacks():
+    places = [
+        make_place(
+            place_id="unknown-price",
+            price_level=None,
+        ),
+        make_place(
+            place_id="moderate",
+            price_level=2,
+        ),
+        make_place(
+            place_id="premium",
+            price_level=4,
+        ),
+    ]
+
+    result = PlaceFilter().apply_with_fallback(
+        places,
+        SearchFilters(
+            price_levels=(1,),
+        ),
+    )
+
+    assert result.mode == "fallback"
+
+    assert [
+        place["id"]
+        for place in result.places
+    ] == ["unknown-price"]
+
+    assert result.title == (
+        "Selected pricing could not be verified"
+    )
+
+
+def test_place_filter_keeps_alternatives_when_all_prices_are_known():
+    places = [
+        make_place(
+            place_id="moderate",
+            price_level=2,
+        ),
+        make_place(
+            place_id="premium",
+            price_level=4,
+        ),
+    ]
+
+    result = PlaceFilter().apply_with_fallback(
+        places,
+        SearchFilters(
+            price_levels=(1,),
+        ),
+    )
+
+    assert result.mode == "fallback"
+    assert result.places == places
+
+
+def test_place_filter_prioritizes_unknown_hours_fallbacks():
+    places = [
+        make_place(
+            place_id="unknown-hours",
+            open_now=None,
+        ),
+        make_place(
+            place_id="closed",
+            open_now=False,
+        ),
+    ]
+
+    result = PlaceFilter().apply_with_fallback(
+        places,
+        SearchFilters(
+            open_now=True,
+        ),
+    )
+
+    assert result.mode == "fallback"
+
+    assert [
+        place["id"]
+        for place in result.places
+    ] == ["unknown-hours"]
+
+    assert result.title == (
+        "Matching hours could not be confirmed"
+    )
+
+
+def test_place_filter_orders_rating_fallbacks_highest_first():
+    places = [
+        make_place(
+            place_id="lower",
+            rating=4.1,
+        ),
+        make_place(
+            place_id="highest",
+            rating=4.4,
+        ),
+        make_place(
+            place_id="middle",
+            rating=4.3,
+        ),
+    ]
+
+    result = PlaceFilter().apply_with_fallback(
+        places,
+        SearchFilters(
+            minimum_rating=4.5,
+        ),
+    )
+
+    assert result.mode == "fallback"
+
+    assert [
+        place["id"]
+        for place in result.places
+    ] == [
+        "highest",
+        "middle",
+        "lower",
+    ]
+
+
+def test_place_filter_orders_distance_fallbacks_nearest_first():
+    places = [
+        make_place(
+            place_id="farthest",
+            distance_miles=4.0,
+        ),
+        make_place(
+            place_id="nearest",
+            distance_miles=2.0,
+        ),
+        make_place(
+            place_id="middle",
+            distance_miles=3.0,
+        ),
+    ]
+
+    result = PlaceFilter().apply_with_fallback(
+        places,
+        SearchFilters(
+            max_distance_meters=1600,
+        ),
+    )
+
+    assert result.mode == "fallback"
+
+    assert [
+        place["id"]
+        for place in result.places
+    ] == [
+        "nearest",
+        "middle",
+        "farthest",
+    ]
+
+
+def test_place_filter_orders_combined_fallbacks_by_match_count():
+    places = [
+        make_place(
+            place_id="one-match",
+            price_level=3,
+            open_now=True,
+            rating=4.0,
+            distance_miles=4.0,
+        ),
+        make_place(
+            place_id="three-matches",
+            price_level=1,
+            open_now=True,
+            rating=4.8,
+            distance_miles=4.0,
+        ),
+        make_place(
+            place_id="two-matches",
+            price_level=1,
+            open_now=True,
+            rating=4.0,
+            distance_miles=4.0,
+        ),
+    ]
+
+    result = PlaceFilter().apply_with_fallback(
+        places,
+        SearchFilters(
+            price_levels=(1,),
+            open_now=True,
+            minimum_rating=4.5,
+            max_distance_meters=1600,
+        ),
+    )
+
+    assert result.mode == "fallback"
+
+    assert [
+        place["id"]
+        for place in result.places
+    ] == [
+        "three-matches",
+        "two-matches",
+        "one-match",
+    ]
+
+
+def test_place_filter_returns_empty_when_provider_found_nothing():
+    result = PlaceFilter().apply_with_fallback(
+        [],
+        SearchFilters(
+            price_levels=(1,),
+        ),
+    )
+
+    assert result.mode == "empty"
+    assert result.places == []
+    assert result.title == "No matching places found"
+
+
+def test_place_filter_returns_empty_without_filters_or_places():
+    result = PlaceFilter().apply_with_fallback(
+        [],
+        SearchFilters(),
+    )
+
+    assert result.mode == "empty"
+    assert result.places == []
