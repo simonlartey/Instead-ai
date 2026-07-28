@@ -164,7 +164,7 @@ def test_dashboard_javascript_implements_result_filters(
     assert '"Mid-Range"' in javascript
     assert '"Premium"' in javascript
     assert '"Luxury"' in javascript
-    assert '${labels[priceLevel]}' in javascript
+    assert "return labels[priceLevel]" in javascript
 
 
 def test_dashboard_javascript_sends_filters_to_search_api(

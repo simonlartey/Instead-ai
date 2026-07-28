@@ -1075,7 +1075,7 @@ const formatPriceLevel = (priceLevel) => {
     return "";
   }
 
-  return `${labels[priceLevel]} · ${"$".repeat(priceLevel)}`;
+  return labels[priceLevel];
 };
 
 const formatRating = (rating) => {
