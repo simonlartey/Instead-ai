@@ -747,6 +747,7 @@ def test_continue_search_returns_response(
     data = response.get_json()
 
     assert data["session_id"] == session_id
+    assert data["action"] == "answer_existing"
     assert data["response"].startswith(
         "You asked: Which one is cheaper?. "
     )
@@ -771,6 +772,81 @@ def test_continue_search_returns_response(
     assert decision_call["session"].session_id == session_id
     assert decision_call["message"] == (
         "Which one is cheaper?"
+    )
+
+
+def test_continue_search_returns_clarification_question(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.CLARIFY,
+            clarification_question=(
+                "What would you like to improve: "
+                "price, distance, rating, or atmosphere?"
+            ),
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    assistant_provider = app.extensions[
+        "assistant_provider"
+    ]
+    assistant_provider.continue_conversation = Mock()
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Show me something better",
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.get_json() == {
+        "session_id": session_id,
+        "action": "clarify",
+        "response": (
+            "What would you like to improve: "
+            "price, distance, rating, or atmosphere?"
+        ),
+    }
+
+    assistant_provider.continue_conversation.assert_not_called()
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    session = repository.get(session_id)
+
+    assert session is not None
+    assert len(session.conversation_history) == 4
+
+    assert (
+        session.conversation_history[-2].content
+        == "Show me something better"
+    )
+
+    assert session.conversation_history[-1].content == (
+        "What would you like to improve: "
+        "price, distance, rating, or atmosphere?"
     )
 
 

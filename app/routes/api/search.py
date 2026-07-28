@@ -194,6 +194,25 @@ def continue_search(session_id: str):
             }
         ), 503
 
+    if decision.action is ConversationAction.CLARIFY:
+        clarification_question = (
+            decision.clarification_question
+        )
+
+        conversation_manager.continue_session(
+            session_id=session_id,
+            user_message=message,
+            assistant_response=clarification_question,
+        )
+
+        return jsonify(
+            {
+                "session_id": session_id,
+                "action": decision.action.value,
+                "response": clarification_question,
+            }
+        ), 200
+
     if decision.action is not ConversationAction.ANSWER_EXISTING:
         return jsonify(
             {
@@ -242,6 +261,7 @@ def continue_search(session_id: str):
     return jsonify(
         {
             "session_id": session_id,
+            "action": decision.action.value,
             "response": response,
         }
     ), 200
