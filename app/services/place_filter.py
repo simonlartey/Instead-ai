@@ -70,8 +70,13 @@ class PlaceFilter:
             filters
         )
 
+        fallback_places = self._select_fallback_places(
+            places,
+            filters,
+        )
+
         return PlaceFilterResult(
-            places=list(places),
+            places=fallback_places,
             mode="fallback",
             title=title,
             message=message,
@@ -195,6 +200,227 @@ class PlaceFilter:
             or filters.minimum_rating is not None
             or filters.max_distance_meters is not None
         )
+
+    def _select_fallback_places(
+        self,
+        places: list[dict[str, Any]],
+        filters: SearchFilters,
+    ) -> list[dict[str, Any]]:
+        active_filter_count = sum(
+            (
+                bool(filters.price_levels),
+                filters.open_now is not None,
+                filters.minimum_rating is not None,
+                filters.max_distance_meters is not None,
+            )
+        )
+
+        if active_filter_count > 1:
+            return self._rank_combined_fallbacks(
+                places,
+                filters,
+            )
+
+        if filters.price_levels:
+            return self._select_price_fallbacks(
+                places
+            )
+
+        if filters.open_now is not None:
+            return self._select_open_status_fallbacks(
+                places
+            )
+
+        if filters.minimum_rating is not None:
+            return self._rank_rating_fallbacks(
+                places
+            )
+
+        if filters.max_distance_meters is not None:
+            return self._rank_distance_fallbacks(
+                places
+            )
+
+        return list(places)
+
+    @staticmethod
+    def _select_price_fallbacks(
+        places: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        unknown_price_places = [
+            place
+            for place in places
+            if place.get("price_level") is None
+        ]
+
+        if unknown_price_places:
+            return unknown_price_places
+
+        return list(places)
+
+    @staticmethod
+    def _select_open_status_fallbacks(
+        places: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        unknown_hours_places = [
+            place
+            for place in places
+            if place.get("open_now") is None
+        ]
+
+        if unknown_hours_places:
+            return unknown_hours_places
+
+        return list(places)
+
+    @staticmethod
+    def _rank_rating_fallbacks(
+        places: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        return sorted(
+            places,
+            key=lambda place: (
+                isinstance(
+                    place.get("rating"),
+                    (int, float),
+                )
+                and not isinstance(
+                    place.get("rating"),
+                    bool,
+                ),
+                place.get("rating")
+                if isinstance(
+                    place.get("rating"),
+                    (int, float),
+                )
+                and not isinstance(
+                    place.get("rating"),
+                    bool,
+                )
+                else 0,
+                place.get("review_count")
+                if isinstance(
+                    place.get("review_count"),
+                    int,
+                )
+                and not isinstance(
+                    place.get("review_count"),
+                    bool,
+                )
+                else 0,
+            ),
+            reverse=True,
+        )
+
+    @staticmethod
+    def _rank_distance_fallbacks(
+        places: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        return sorted(
+            places,
+            key=lambda place: (
+                not (
+                    isinstance(
+                        place.get("distance_miles"),
+                        (int, float),
+                    )
+                    and not isinstance(
+                        place.get("distance_miles"),
+                        bool,
+                    )
+                ),
+                (
+                    float(place["distance_miles"])
+                    if isinstance(
+                        place.get("distance_miles"),
+                        (int, float),
+                    )
+                    and not isinstance(
+                        place.get("distance_miles"),
+                        bool,
+                    )
+                    else float("inf")
+                ),
+            ),
+        )
+
+    def _rank_combined_fallbacks(
+        self,
+        places: list[dict[str, Any]],
+        filters: SearchFilters,
+    ) -> list[dict[str, Any]]:
+        return sorted(
+            places,
+            key=lambda place: (
+                -self._count_matching_filters(
+                    place,
+                    filters,
+                ),
+                self._fallback_distance(
+                    place
+                ),
+                str(place.get("name", "")),
+            ),
+        )
+
+    def _count_matching_filters(
+        self,
+        place: dict[str, Any],
+        filters: SearchFilters,
+    ) -> int:
+        matches = 0
+
+        if (
+            filters.price_levels
+            and self._matches_price_levels(
+                place,
+                filters.price_levels,
+            )
+        ):
+            matches += 1
+
+        if (
+            filters.open_now is not None
+            and self._matches_open_status(
+                place,
+                filters.open_now,
+            )
+        ):
+            matches += 1
+
+        if (
+            filters.minimum_rating is not None
+            and self._matches_minimum_rating(
+                place,
+                filters.minimum_rating,
+            )
+        ):
+            matches += 1
+
+        if (
+            filters.max_distance_meters is not None
+            and self._matches_maximum_distance(
+                place,
+                filters.max_distance_meters,
+            )
+        ):
+            matches += 1
+
+        return matches
+
+    @staticmethod
+    def _fallback_distance(
+        place: dict[str, Any],
+    ) -> float:
+        distance = place.get("distance_miles")
+
+        if (
+            isinstance(distance, (int, float))
+            and not isinstance(distance, bool)
+        ):
+            return float(distance)
+
+        return float("inf")
 
     @staticmethod
     def _build_fallback_message(
