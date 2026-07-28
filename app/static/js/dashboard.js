@@ -454,6 +454,8 @@ let selectedLocation =
 
 let PLACES = {};
 let currentSearchPlaces = [];
+let currentSearchQuery = null;
+let lastAppliedFilterSignature = "";
 
 const activeResultFilters = new Set();
 
@@ -2385,7 +2387,7 @@ const renderMapMarkers = async (places) => {
 
 const FILTER_SETTINGS = Object.freeze({
   budget: {
-    priceLevels: [0, 1],
+    priceLevels: [1],
   },
   moderate: {
     priceLevels: [2],
@@ -2403,6 +2405,55 @@ const FILTER_SETTINGS = Object.freeze({
     maximumDistanceMiles: 1.5,
   },
 });
+
+const METERS_PER_MILE = 1609.344;
+
+const buildActiveSearchFilters = () => {
+  const filters = {};
+  const priceLevels = new Set();
+
+  ["budget", "moderate", "premium"].forEach(
+    (filterName) => {
+      if (!activeResultFilters.has(filterName)) {
+        return;
+      }
+
+      FILTER_SETTINGS[
+        filterName
+      ].priceLevels.forEach((priceLevel) => {
+        priceLevels.add(priceLevel);
+      });
+    }
+  );
+
+  if (priceLevels.size > 0) {
+    filters.price_levels = Array.from(
+      priceLevels
+    ).sort((first, second) => first - second);
+  }
+
+  if (activeResultFilters.has("open")) {
+    filters.open_now =
+      FILTER_SETTINGS.open.openNow;
+  }
+
+  if (activeResultFilters.has("rated")) {
+    filters.minimum_rating =
+      FILTER_SETTINGS.rated.minimumRating;
+  }
+
+  if (activeResultFilters.has("nearby")) {
+    filters.max_distance_meters = Math.round(
+      FILTER_SETTINGS.nearby
+        .maximumDistanceMiles * METERS_PER_MILE
+    );
+  }
+
+  return filters;
+};
+
+const buildFilterSignature = (filters) =>
+  JSON.stringify(filters);
 
 const placeMatchesActiveFilters = (place) => {
   if (activeResultFilters.size === 0) {
@@ -2521,6 +2572,140 @@ const resetResultFilters = () => {
     });
 };
 
+const refreshSearchWithActiveFilters = async () => {
+  if (
+    typeof currentSearchQuery !== "string" ||
+    !currentSearchQuery.trim()
+  ) {
+    renderFilteredSearchResults();
+    return;
+  }
+
+  const activeFilters = buildActiveSearchFilters();
+  const filterSignature = buildFilterSignature(
+    activeFilters
+  );
+
+  if (filterSignature === lastAppliedFilterSignature) {
+    return;
+  }
+
+  const status = document.querySelector(
+    SELECTORS.searchStatus
+  );
+
+  const requestId = ++latestSearchRequestId;
+  const controller = new AbortController();
+
+  const timeoutId = window.setTimeout(
+    () => controller.abort(),
+    SEARCH_TIMEOUT_MILLISECONDS
+  );
+
+  if (status) {
+    status.textContent =
+      activeResultFilters.size > 0
+        ? "Applying search filters."
+        : "Removing search filters.";
+  }
+
+  try {
+    const searchResponse = await searchPlaces(
+      currentSearchQuery,
+      {
+        signal: controller.signal,
+        filters: activeFilters,
+      }
+    );
+
+    if (requestId !== latestSearchRequestId) {
+      return;
+    }
+
+    lastAppliedFilterSignature = filterSignature;
+
+    activeSearchSessionId =
+      typeof searchResponse.search_id === "string"
+        ? searchResponse.search_id
+        : null;
+
+    if (
+      typeof searchResponse.assistant_response === "string" &&
+      searchResponse.assistant_response.trim()
+    ) {
+      appendConversationMessage({
+        role: "assistant",
+        text: searchResponse.assistant_response.trim(),
+      });
+    }
+
+    currentSearchPlaces = Array.isArray(
+      searchResponse.results
+    )
+      ? [...searchResponse.results]
+      : [];
+
+    if (currentSearchPlaces.length === 0) {
+      applySearchResults([]);
+
+      showResultsState({
+        title:
+          activeResultFilters.size > 0
+            ? "No places match these filters"
+            : "No matching places found",
+        message:
+          activeResultFilters.size > 0
+            ? "Remove one or more filters to see additional results."
+            : "Try changing your wording or broadening your search.",
+      });
+
+      if (status) {
+        status.textContent =
+          "Search complete. No matching places found.";
+      }
+
+      return;
+    }
+
+    hideResultsState();
+    renderFilteredSearchResults();
+
+    if (status) {
+      status.textContent =
+        `Search complete. Found ` +
+        `${searchResponse.result_count} results.`;
+    }
+  } catch (error) {
+    if (requestId !== latestSearchRequestId) {
+      return;
+    }
+
+    const requestTimedOut =
+      error instanceof Error &&
+      error.name === "AbortError";
+
+    showResultsState({
+      title: "Could not update the results",
+      message: requestTimedOut
+        ? "The filtered search took too long. Please try again."
+        : (
+            error instanceof Error &&
+            error.message
+              ? error.message
+              : "The filters could not be applied."
+          ),
+      isError: true,
+    });
+
+    if (status) {
+      status.textContent =
+        "Could not apply the selected filters.";
+    }
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+};
+
 const initializeFilterChips = () => {
   const filterChips = document.querySelectorAll(
     SELECTORS.filterChip
@@ -2536,7 +2721,7 @@ const initializeFilterChips = () => {
 
       if (filterName === "all") {
         resetResultFilters();
-        renderFilteredSearchResults();
+        void refreshSearchWithActiveFilters();
         return;
       }
 
@@ -2577,7 +2762,7 @@ const initializeFilterChips = () => {
         String(!hasActiveFilters)
       );
 
-      renderFilteredSearchResults();
+      void refreshSearchWithActiveFilters();
     });
   });
 };
@@ -3586,7 +3771,13 @@ const initializeMobileInspector = () => {
   });
 };
 
-const searchPlaces = async (query, { signal } = {}) => {
+const searchPlaces = async (
+  query,
+  {
+    signal,
+    filters = {},
+  } = {}
+) => {
   const response = await fetch("/api/v1/search", {
     method: "POST",
     headers: {
@@ -3599,6 +3790,7 @@ const searchPlaces = async (query, { signal } = {}) => {
         latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
       },
+      filters,
     }),
   });
 
@@ -3862,6 +4054,12 @@ const initializeDashboardSearch = () => {
       status.textContent =
         "Continuing the current conversation.";
     } else {
+      currentSearchQuery = query;
+      lastAppliedFilterSignature =
+        buildFilterSignature(
+          buildActiveSearchFilters()
+        );
+
       setSearchLoadingState(true);
       hideResultsState();
 
@@ -3905,6 +4103,7 @@ const initializeDashboardSearch = () => {
 
       const searchResponse = await searchPlaces(query, {
         signal: controller.signal,
+        filters: buildActiveSearchFilters(),
       });
 
       if (requestId !== latestSearchRequestId) {
@@ -3917,7 +4116,6 @@ const initializeDashboardSearch = () => {
           : null;
 
       if (searchResponse.results.length === 0) {
-        resetResultFilters();
         clearSearchResults();
 
         updateConversationMessage(
@@ -3946,7 +4144,6 @@ const initializeDashboardSearch = () => {
         ...searchResponse.results,
       ];
 
-      resetResultFilters();
       renderFilteredSearchResults();
 
       const assistantResponse =
@@ -4320,6 +4517,8 @@ const initializeNewChat = () => {
     setDashboardView("explore");
 
     activeSearchSessionId = null;
+    currentSearchQuery = null;
+    lastAppliedFilterSignature = "";
     resetResultFilters();
     latestSearchRequestId += 1;
 

@@ -5,6 +5,7 @@ from app.providers.assistant.base import AssistantProvider
 from app.providers.places.base import PlacesProvider
 from app.schemas.search import SearchRequest
 from app.services.conversation_manager import ConversationManager
+from app.services.place_filter import PlaceFilter
 from app.services.place_relevance_ranker import (
     PlaceRelevanceRanker,
 )
@@ -19,6 +20,7 @@ class SearchService:
         assistant_provider: AssistantProvider | None = None,
         conversation_manager: ConversationManager | None = None,
         relevance_ranker: PlaceRelevanceRanker | None = None,
+        place_filter: PlaceFilter | None = None,
     ):
         self.places_provider = places_provider
         self.assistant_provider = assistant_provider
@@ -26,6 +28,7 @@ class SearchService:
         self.relevance_ranker = (
             relevance_ranker or PlaceRelevanceRanker()
         )
+        self.place_filter = place_filter or PlaceFilter()
 
     def search(self, search_request: SearchRequest) -> dict:
         latitude = None
@@ -43,9 +46,14 @@ class SearchService:
             longitude=longitude,
         )
 
+        filtered_results = self.place_filter.apply(
+            results,
+            search_request.filters,
+        )
+
         ranked_results = self.relevance_ranker.rank(
             query=intent.search_query,
-            places=results,
+            places=filtered_results,
             original_query=search_request.query,
         )
 
@@ -60,7 +68,7 @@ class SearchService:
             session = self.conversation_manager.start_session(
                 original_query=search_request.query,
                 intent=intent,
-                places=results,
+                places=filtered_results,
                 ranked_places=ranked_results,
                 assistant_response=assistant_response,
             )

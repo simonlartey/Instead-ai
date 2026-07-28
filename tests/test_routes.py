@@ -153,6 +153,44 @@ def test_dashboard_javascript_implements_result_filters(
     assert "No places match these filters" in javascript
 
 
+def test_dashboard_javascript_sends_filters_to_search_api(
+    client,
+):
+    response = client.get(
+        "/static/js/dashboard.js"
+    )
+
+    assert response.status_code == 200
+
+    javascript = response.get_data(as_text=True)
+
+    assert "const buildActiveSearchFilters" in javascript
+    assert "price_levels" in javascript
+    assert "open_now" in javascript
+    assert "minimum_rating" in javascript
+    assert "max_distance_meters" in javascript
+    assert "filters: buildActiveSearchFilters()" in javascript
+    assert "refreshSearchWithActiveFilters" in javascript
+    assert "void refreshSearchWithActiveFilters()" in javascript
+
+
+def test_dashboard_javascript_synchronizes_filter_responses_with_chat(
+    client,
+):
+    response = client.get(
+        "/static/js/dashboard.js"
+    )
+
+    assert response.status_code == 200
+
+    javascript = response.get_data(as_text=True)
+
+    assert "lastAppliedFilterSignature" in javascript
+    assert "buildFilterSignature" in javascript
+    assert "searchResponse.assistant_response" in javascript
+    assert "appendConversationMessage" in javascript
+
+
 def test_dashboard_javascript_uses_assistant_response(client):
     response = client.get(
         "/static/js/dashboard.js"
