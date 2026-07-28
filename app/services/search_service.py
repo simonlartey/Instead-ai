@@ -46,10 +46,12 @@ class SearchService:
             longitude=longitude,
         )
 
-        filtered_results = self.place_filter.apply(
+        filter_result = self.place_filter.apply_with_fallback(
             results,
             search_request.filters,
         )
+
+        filtered_results = filter_result.places
 
         ranked_results = self.relevance_ranker.rank(
             query=intent.search_query,
@@ -83,6 +85,11 @@ class SearchService:
             "result_count": len(ranked_results),
             "results": ranked_results,
             "assistant_response": assistant_response,
+            "filter_status": {
+                "mode": filter_result.mode,
+                "title": filter_result.title,
+                "message": filter_result.message,
+            },
         }
 
     def _parse_search_intent(

@@ -4,6 +4,7 @@ from app.schemas.search import (
     SearchLocation,
     SearchRequest,
 )
+from app.services.place_filter import PlaceFilterResult
 from app.services.search_service import SearchService
 
 
@@ -94,19 +95,40 @@ class RecordingConversationManager:
 class RecordingPlaceFilter:
     """Record places and filters passed by SearchService."""
 
-    def __init__(self, filtered_places=None):
+    def __init__(
+        self,
+        filtered_places=None,
+        mode="exact",
+        title=None,
+        message=None,
+    ):
         self.received_places = None
         self.received_filters = None
         self.filtered_places = filtered_places
+        self.mode = mode
+        self.title = title
+        self.message = message
 
-    def apply(self, places, filters):
+    def apply_with_fallback(
+        self,
+        places,
+        filters,
+    ):
         self.received_places = places
         self.received_filters = filters
 
-        if self.filtered_places is not None:
-            return self.filtered_places
+        selected_places = (
+            self.filtered_places
+            if self.filtered_places is not None
+            else list(places)
+        )
 
-        return list(places)
+        return PlaceFilterResult(
+            places=selected_places,
+            mode=self.mode,
+            title=self.title,
+            message=self.message,
+        )
 
 
 def test_search_service_returns_expected_response():
@@ -671,11 +693,12 @@ def test_search_service_stores_filtered_places_in_session():
     ] == filtered_results
 
 
-def test_search_service_handles_filters_removing_all_results():
+def test_search_service_returns_fallback_results_when_no_exact_match():
     provider_results = [
         {
             "id": "first-place",
             "name": "First Place",
+            "open_now": None,
         }
     ]
 
@@ -684,7 +707,13 @@ def test_search_service_handles_filters_removing_all_results():
             provider_results
         ),
         place_filter=RecordingPlaceFilter(
-            filtered_places=[]
+            filtered_places=provider_results,
+            mode="fallback",
+            title="Matching hours could not be confirmed",
+            message=(
+                "Showing relevant alternatives because no place "
+                "had confirmed hours matching this filter."
+            ),
         ),
     )
 
@@ -697,5 +726,85 @@ def test_search_service_handles_filters_removing_all_results():
         )
     )
 
+    assert response["result_count"] == 1
+    assert response["results"] == provider_results
+
+    assert response["filter_status"] == {
+        "mode": "fallback",
+        "title": "Matching hours could not be confirmed",
+        "message": (
+            "Showing relevant alternatives because no place "
+            "had confirmed hours matching this filter."
+        ),
+    }
+
+
+def test_search_service_returns_exact_filter_status():
+    provider_results = [
+        {
+            "id": "open-place",
+            "name": "Open Place",
+            "open_now": True,
+        }
+    ]
+
+    service = SearchService(
+        places_provider=StaticPlacesProvider(
+            provider_results
+        ),
+        place_filter=RecordingPlaceFilter(
+            filtered_places=provider_results,
+            mode="exact",
+        ),
+    )
+
+    response = service.search(
+        SearchRequest(
+            query="Coffee shop",
+            filters=SearchFilters(
+                open_now=True,
+            ),
+        )
+    )
+
+    assert response["filter_status"] == {
+        "mode": "exact",
+        "title": None,
+        "message": None,
+    }
+
+
+def test_search_service_returns_empty_filter_status():
+    service = SearchService(
+        places_provider=StaticPlacesProvider([]),
+        place_filter=RecordingPlaceFilter(
+            filtered_places=[],
+            mode="empty",
+            title="No matching places found",
+            message=(
+                "Try changing your wording or broadening "
+                "your search."
+            ),
+        ),
+    )
+
+    response = service.search(
+        SearchRequest(
+            query="Rare local service",
+            filters=SearchFilters(
+                open_now=True,
+            ),
+        )
+    )
+
     assert response["result_count"] == 0
     assert response["results"] == []
+
+    assert response["filter_status"] == {
+        "mode": "empty",
+        "title": "No matching places found",
+        "message": (
+            "Try changing your wording or broadening "
+            "your search."
+        ),
+    }
