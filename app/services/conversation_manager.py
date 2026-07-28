@@ -84,6 +84,42 @@ class ConversationManager:
 
         return session
 
+    def replace_search_state(
+        self,
+        session_id: str,
+        original_query: str,
+        intent: SearchIntent,
+        places: list[dict[str, Any]],
+        ranked_places: list[dict[str, Any]],
+        user_message: str,
+        assistant_response: str,
+    ) -> SearchSession | None:
+        """Replace search results while preserving the conversation session."""
+
+        session = self.get_session(session_id)
+
+        if session is None:
+            return None
+
+        session.original_query = original_query
+        session.intent = intent
+        session.places = places
+        session.ranked_places = ranked_places
+
+        session.add_message(
+            role=MessageRole.USER,
+            content=user_message,
+        )
+
+        session.add_message(
+            role=MessageRole.ASSISTANT,
+            content=assistant_response,
+        )
+
+        self.session_repository.save(session)
+
+        return session
+
     def get_conversation_history(
         self,
         session_id: str,
