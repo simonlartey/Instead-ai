@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.authentication import load_current_user
@@ -28,6 +28,24 @@ def create_app(config_class=Config):
     )
 
     app.config.from_object(config_class)
+
+    @app.before_request
+    def reject_invalid_google_oauth_callbacks():
+        """Reject direct visits to the Google OAuth callback endpoint."""
+        if request.path != "/login/google/authorized":
+            return None
+
+        if request.args.get("code") or request.args.get("error"):
+            return None
+
+        return (
+            "Invalid OAuth callback request.",
+            400,
+            {
+                "X-Robots-Tag": "noindex, nofollow",
+                "Content-Type": "text/plain; charset=utf-8",
+            },
+        )
 
     app.extensions[
         "search_session_repository"
