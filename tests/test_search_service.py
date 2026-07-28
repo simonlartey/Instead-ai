@@ -131,6 +131,64 @@ class RecordingPlaceFilter:
         )
 
 
+def test_execute_returns_pipeline_result_without_session():
+    places_provider = RecordingPlacesProvider()
+    assistant_provider = RecordingAssistantProvider()
+    conversation_manager = RecordingConversationManager()
+    place_filter = RecordingPlaceFilter()
+
+    service = SearchService(
+        places_provider=places_provider,
+        assistant_provider=assistant_provider,
+        conversation_manager=conversation_manager,
+        place_filter=place_filter,
+    )
+
+    search_request = SearchRequest(
+        query="Find somewhere quiet to study",
+        location=SearchLocation(
+            latitude=43.6591,
+            longitude=-70.2568,
+        ),
+        filters=SearchFilters(
+            open_now=True,
+        ),
+    )
+
+    result = service.execute(search_request)
+
+    assert result.intent.search_query == "quiet cafe"
+    assert result.places == [
+        {
+            "id": "test-place",
+            "name": "Test Place",
+        }
+    ]
+    assert result.ranked_places == [
+        {
+            "id": "test-place",
+            "name": "Test Place",
+        }
+    ]
+    assert result.assistant_response == (
+        "Campus Cafe is the strongest match."
+    )
+    assert result.filter_mode == "exact"
+
+    assert place_filter.received_places == [
+        {
+            "id": "test-place",
+            "name": "Test Place",
+        }
+    ]
+
+    assert place_filter.received_filters == (
+        search_request.filters
+    )
+
+    assert conversation_manager.arguments is None
+
+
 def test_search_service_returns_expected_response():
     provider = RecordingPlacesProvider()
     service = SearchService(provider)
