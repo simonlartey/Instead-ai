@@ -455,6 +455,7 @@ let selectedLocation =
 let PLACES = {};
 let currentSearchPlaces = [];
 let currentSearchQuery = null;
+let lastAppliedFilterSignature = "";
 
 const activeResultFilters = new Set();
 
@@ -2451,6 +2452,9 @@ const buildActiveSearchFilters = () => {
   return filters;
 };
 
+const buildFilterSignature = (filters) =>
+  JSON.stringify(filters);
+
 const placeMatchesActiveFilters = (place) => {
   if (activeResultFilters.size === 0) {
     return true;
@@ -2577,6 +2581,15 @@ const refreshSearchWithActiveFilters = async () => {
     return;
   }
 
+  const activeFilters = buildActiveSearchFilters();
+  const filterSignature = buildFilterSignature(
+    activeFilters
+  );
+
+  if (filterSignature === lastAppliedFilterSignature) {
+    return;
+  }
+
   const status = document.querySelector(
     SELECTORS.searchStatus
   );
@@ -2601,7 +2614,7 @@ const refreshSearchWithActiveFilters = async () => {
       currentSearchQuery,
       {
         signal: controller.signal,
-        filters: buildActiveSearchFilters(),
+        filters: activeFilters,
       }
     );
 
@@ -2609,10 +2622,22 @@ const refreshSearchWithActiveFilters = async () => {
       return;
     }
 
+    lastAppliedFilterSignature = filterSignature;
+
     activeSearchSessionId =
       typeof searchResponse.search_id === "string"
         ? searchResponse.search_id
         : null;
+
+    if (
+      typeof searchResponse.assistant_response === "string" &&
+      searchResponse.assistant_response.trim()
+    ) {
+      appendConversationMessage({
+        role: "assistant",
+        text: searchResponse.assistant_response.trim(),
+      });
+    }
 
     currentSearchPlaces = Array.isArray(
       searchResponse.results
@@ -4030,6 +4055,10 @@ const initializeDashboardSearch = () => {
         "Continuing the current conversation.";
     } else {
       currentSearchQuery = query;
+      lastAppliedFilterSignature =
+        buildFilterSignature(
+          buildActiveSearchFilters()
+        );
 
       setSearchLoadingState(true);
       hideResultsState();
@@ -4489,6 +4518,7 @@ const initializeNewChat = () => {
 
     activeSearchSessionId = null;
     currentSearchQuery = null;
+    lastAppliedFilterSignature = "";
     resetResultFilters();
     latestSearchRequestId += 1;
 
