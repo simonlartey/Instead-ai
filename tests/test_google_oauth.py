@@ -154,3 +154,30 @@ def test_google_oauth_error_redirects_to_login(app):
 
         assert response.status_code == 302
         assert "oauth_error=authorization" in response.headers["Location"]
+
+
+def test_google_callback_without_oauth_parameters_is_rejected(client):
+    response = client.get("/login/google/authorized")
+
+    assert response.status_code == 400
+    assert b"Invalid OAuth callback request" in response.data
+    assert response.headers["X-Robots-Tag"] == "noindex, nofollow"
+
+
+def test_google_callback_with_code_is_not_blocked_by_guard(
+    client,
+    app,
+    monkeypatch,
+):
+    monkeypatch.setitem(
+        app.view_functions,
+        "google.authorized",
+        lambda: "OAuth callback reached.",
+    )
+
+    response = client.get(
+        "/login/google/authorized",
+        query_string={"code": "test-code", "state": "test-state"},
+    )
+
+    assert response.status_code != 400

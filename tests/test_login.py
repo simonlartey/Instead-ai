@@ -30,6 +30,10 @@ def test_login_page_contains_google_sign_in(client):
     html = response.get_data(as_text=True)
 
     assert "Continue with Google" in html
+    assert (
+        "Secure sign-in through Google. Instead never sees or stores "
+        "your Google password."
+    ) in html
     assert 'name="email"' not in html
     assert 'name="password"' not in html
     assert "or continue with email" not in html

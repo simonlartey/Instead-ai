@@ -349,6 +349,14 @@ svg {
   box-shadow: 0 14px 30px rgba(24, 19, 22, 0.09);
 }
 
+.auth-provider-note {
+  margin-top: 12px;
+  color: rgba(24, 19, 22, 0.58);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .google-icon {
   width: 20px;
   height: 20px;
