@@ -3,12 +3,20 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.authentication import load_current_user
 from app.extensions import db, migrate
+from app.models.conversation_action import ConversationAction
+from app.models.conversation_decision import ConversationDecision
 from app.providers.assistant.factory import create_assistant_provider
+from app.providers.assistant.fake_conversation_decision_provider import (
+    FakeConversationDecisionProvider,
+)
 from app.providers.places.factory import create_places_provider
 from app.repositories.in_memory_search_session import (
     InMemorySearchSessionRepository,
 )
 from app.services.conversation_manager import ConversationManager
+from app.services.conversation_orchestrator import (
+    ConversationOrchestrator,
+)
 from app.services.discovery_cache import (
     DiscoveryCache,
 )
@@ -59,6 +67,22 @@ def create_app(config_class=Config):
 
     app.extensions["assistant_provider"] = create_assistant_provider(
         app.config
+    )
+
+    app.extensions[
+        "conversation_decision_provider"
+    ] = FakeConversationDecisionProvider(
+        ConversationDecision(
+            action=ConversationAction.ANSWER_EXISTING,
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = ConversationOrchestrator(
+        decision_provider=app.extensions[
+            "conversation_decision_provider"
+        ]
     )
 
     app.extensions["places_provider"] = create_places_provider(
