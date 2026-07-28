@@ -154,6 +154,11 @@ def test_dashboard_javascript_implements_result_filters(
     assert "const renderFilteredSearchResults" in javascript
     assert "const resetResultFilters" in javascript
     assert "No places match these filters" in javascript
+    assert "let currentFilterStatus = null" in javascript
+    assert "const normalizeFilterStatus" in javascript
+    assert 'currentFilterStatus?.mode === "fallback"' in javascript
+    assert "searchResponse.filter_status" in javascript
+    assert "Showing relevant alternatives" in javascript
 
 
 def test_dashboard_javascript_sends_filters_to_search_api(
