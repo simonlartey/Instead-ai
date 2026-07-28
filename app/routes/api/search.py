@@ -154,6 +154,10 @@ def continue_search(session_id: str):
         "assistant_provider"
     ]
 
+    places_provider = current_app.extensions[
+        "places_provider"
+    ]
+
     conversation_orchestrator = current_app.extensions[
         "conversation_orchestrator"
     ]
@@ -210,6 +214,73 @@ def continue_search(session_id: str):
                 "session_id": session_id,
                 "action": decision.action.value,
                 "response": clarification_question,
+            }
+        ), 200
+
+    if decision.action is ConversationAction.RUN_NEW_SEARCH:
+        search_service = SearchService(
+            places_provider=places_provider,
+            assistant_provider=assistant_provider,
+            conversation_manager=conversation_manager,
+        )
+
+        search_request = SearchRequest(
+            query=decision.rewritten_query,
+            location=session.location,
+            filters=session.filters,
+        )
+
+        try:
+            execution = search_service.execute(
+                search_request
+            )
+        except PlacesProviderError:
+            current_app.logger.exception(
+                "Places provider failed during conversational search."
+            )
+
+            return jsonify(
+                {
+                    "error": {
+                        "code": "places_provider_unavailable",
+                        "message": (
+                            "Local recommendations are "
+                            "temporarily unavailable."
+                        ),
+                    }
+                }
+            ), 503
+
+        assistant_response = (
+            execution.assistant_response
+            or "I found updated results for your request."
+        )
+
+        conversation_manager.replace_search_state(
+            session_id=session_id,
+            original_query=decision.rewritten_query,
+            intent=execution.intent,
+            places=execution.places,
+            ranked_places=execution.ranked_places,
+            user_message=message,
+            assistant_response=assistant_response,
+        )
+
+        return jsonify(
+            {
+                "session_id": session_id,
+                "action": decision.action.value,
+                "query": decision.rewritten_query,
+                "result_count": len(
+                    execution.ranked_places
+                ),
+                "results": execution.ranked_places,
+                "response": assistant_response,
+                "filter_status": {
+                    "mode": execution.filter_mode,
+                    "title": execution.filter_title,
+                    "message": execution.filter_message,
+                },
             }
         ), 200
 

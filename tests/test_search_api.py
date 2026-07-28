@@ -903,7 +903,155 @@ def test_continue_search_handles_decision_failure(
     assert len(session.conversation_history) == 2
 
 
-def test_continue_search_returns_unsupported_action(
+def test_continue_search_returns_unsupported_refine_action(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.REFINE_RESULTS,
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Only show cheaper options",
+        },
+    )
+
+    assert response.status_code == 409
+
+    assert response.get_json() == {
+        "error": {
+            "code": "conversation_action_not_supported",
+            "message": (
+                "This type of follow-up is not supported yet."
+            ),
+            "action": "refine_results",
+        }
+    }
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    session = repository.get(session_id)
+
+    assert session is not None
+    assert len(session.conversation_history) == 2
+
+
+def test_continue_search_runs_new_search_in_existing_session(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+            "location": {
+                "latitude": 43.6591,
+                "longitude": -70.2568,
+            },
+            "filters": {
+                "open_now": True,
+            },
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    original_session = repository.get(session_id)
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.RUN_NEW_SEARCH,
+            rewritten_query="barber near campus",
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Find a barber instead",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+
+    assert data["session_id"] == session_id
+    assert data["action"] == "run_new_search"
+    assert data["query"] == "barber near campus"
+    assert data["result_count"] == len(
+        data["results"]
+    )
+    assert data["response"]
+
+    updated_session = repository.get(session_id)
+
+    assert updated_session is original_session
+    assert updated_session.session_id == session_id
+    assert updated_session.original_query == (
+        "barber near campus"
+    )
+    assert updated_session.intent.original_query == (
+        "barber near campus"
+    )
+
+    assert updated_session.location.latitude == (
+        43.6591
+    )
+    assert updated_session.location.longitude == (
+        -70.2568
+    )
+    assert updated_session.filters.open_now is True
+
+    assert len(
+        updated_session.conversation_history
+    ) == 4
+
+    assert (
+        updated_session.conversation_history[-2].content
+        == "Find a barber instead"
+    )
+
+    assert (
+        updated_session.conversation_history[-1].content
+        == data["response"]
+    )
+
+
+def test_continue_search_handles_new_search_provider_failure(
     app,
     client,
 ):
@@ -930,6 +1078,15 @@ def test_continue_search_returns_unsupported_action(
         "conversation_orchestrator"
     ] = conversation_orchestrator
 
+    places_provider = app.extensions[
+        "places_provider"
+    ]
+    places_provider.search = Mock(
+        side_effect=PlacesProviderError(
+            "Provider unavailable"
+        )
+    )
+
     response = client.post(
         f"/api/v1/search/{session_id}/continue",
         json={
@@ -937,17 +1094,11 @@ def test_continue_search_returns_unsupported_action(
         },
     )
 
-    assert response.status_code == 409
+    assert response.status_code == 503
 
-    assert response.get_json() == {
-        "error": {
-            "code": "conversation_action_not_supported",
-            "message": (
-                "This type of follow-up is not supported yet."
-            ),
-            "action": "run_new_search",
-        }
-    }
+    assert response.get_json()["error"]["code"] == (
+        "places_provider_unavailable"
+    )
 
     repository = app.extensions[
         "search_session_repository"
@@ -956,6 +1107,9 @@ def test_continue_search_returns_unsupported_action(
     session = repository.get(session_id)
 
     assert session is not None
+    assert session.original_query == (
+        "Find quiet cafes"
+    )
     assert len(session.conversation_history) == 2
 
 
