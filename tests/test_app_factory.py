@@ -8,6 +8,9 @@ from app.providers.assistant.fake_conversation_decision_provider import (
 from app.providers.assistant.openai_provider import (
     OpenAIAssistantProvider,
 )
+from app.providers.assistant.openai_conversation_decision_provider import (
+    OpenAIConversationDecisionProvider,
+)
 from app.providers.places.mock_provider import MockPlacesProvider
 from app.repositories.in_memory_search_session import (
     InMemorySearchSessionRepository,
@@ -111,3 +114,22 @@ def test_app_registers_conversation_orchestrator(app):
             "conversation_decision_provider"
         ]
     )
+
+
+def test_app_registers_openai_conversation_decision_provider():
+    class OpenAIConfig(TestConfig):
+        ASSISTANT_PROVIDER = "openai"
+        OPENAI_API_KEY = "test-openai-key"
+        ASSISTANT_MODEL = "test-model"
+
+    app = create_app(OpenAIConfig)
+
+    provider = app.extensions[
+        "conversation_decision_provider"
+    ]
+
+    assert isinstance(
+        provider,
+        OpenAIConversationDecisionProvider,
+    )
+    assert provider.model == "test-model"
