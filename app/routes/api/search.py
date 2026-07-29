@@ -11,9 +11,30 @@ from app.models.conversation_action import (
 )
 from app.providers.places.errors import PlacesProviderError
 from app.schemas.discovery import DiscoveryRequest
-from app.schemas.search import SearchRequest, SearchValidationError
+from app.schemas.search import (
+    SearchFilters,
+    SearchRequest,
+    SearchValidationError,
+)
 from app.services.discovery_service import DiscoveryService
 from app.services.search_service import SearchService
+
+
+def _serialize_search_filters(
+    filters: SearchFilters,
+) -> dict:
+    """Serialize active search filters for API responses."""
+
+    return {
+        "price_levels": list(
+            filters.price_levels
+        ),
+        "open_now": filters.open_now,
+        "minimum_rating": filters.minimum_rating,
+        "max_distance_meters": (
+            filters.max_distance_meters
+        ),
+    }
 
 
 search_api_bp = Blueprint(
@@ -281,6 +302,9 @@ def continue_search(session_id: str):
                 ),
                 "results": execution.ranked_places,
                 "response": assistant_response,
+                "filters": _serialize_search_filters(
+                    refined_filters
+                ),
                 "filter_status": {
                     "mode": execution.filter_mode,
                     "title": execution.filter_title,
@@ -348,6 +372,9 @@ def continue_search(session_id: str):
                 ),
                 "results": execution.ranked_places,
                 "response": assistant_response,
+                "filters": _serialize_search_filters(
+                    session.filters
+                ),
                 "filter_status": {
                     "mode": execution.filter_mode,
                     "title": execution.filter_title,

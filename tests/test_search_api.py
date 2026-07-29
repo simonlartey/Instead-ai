@@ -971,6 +971,12 @@ def test_continue_search_refines_existing_results(
         data["results"]
     )
     assert data["response"]
+    assert data["filters"] == {
+        "price_levels": [1],
+        "open_now": True,
+        "minimum_rating": 4.5,
+        "max_distance_meters": None,
+    }
 
     updated_session = repository.get(session_id)
 
@@ -1133,6 +1139,12 @@ def test_continue_search_runs_new_search_in_existing_session(
         data["results"]
     )
     assert data["response"]
+    assert data["filters"] == {
+        "price_levels": [],
+        "open_now": True,
+        "minimum_rating": None,
+        "max_distance_meters": None,
+    }
 
     updated_session = repository.get(session_id)
 
