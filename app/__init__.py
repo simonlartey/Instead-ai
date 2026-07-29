@@ -98,13 +98,17 @@ def create_app(config_class=Config):
 
     from app import models  # noqa: F401
     from app.oauth import create_google_blueprint
-    from app.routes.api import search_api_bp
+    from app.routes.api import (
+        deals_api_bp,
+        search_api_bp,
+    )
     from app.routes.auth import auth_bp
     from app.routes.main import main_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(search_api_bp)
+    app.register_blueprint(deals_api_bp)
 
     google_blueprint = create_google_blueprint()
 
