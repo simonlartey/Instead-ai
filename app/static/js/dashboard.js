@@ -96,6 +96,20 @@ const SELECTORS = {
     "[data-student-deal-filter]",
   studentDealsLocation:
     "[data-student-deals-location]",
+  openDealSubmission:
+    "[data-open-deal-submission]",
+  closeDealSubmission:
+    "[data-close-deal-submission]",
+  dealSubmissionOverlay:
+    "[data-deal-submission-overlay]",
+  dealSubmissionForm:
+    "[data-deal-submission-form]",
+  dealSubmissionFeedback:
+    "[data-deal-submission-feedback]",
+  dealSubmissionSubmit:
+    "[data-deal-submission-submit]",
+  dealSubmitLabel:
+    "[data-deal-submit-label]",
 };
 
 const DEFAULT_LOCATION = Object.freeze({
@@ -2659,6 +2673,271 @@ const loadStudentDeals = async () => {
       icon: "circle-alert",
     });
   }
+};
+
+const setDealSubmissionFeedback = ({
+  message = "",
+  isError = false,
+  hidden = false,
+}) => {
+  const feedback = document.querySelector(
+    SELECTORS.dealSubmissionFeedback
+  );
+
+  if (!feedback) {
+    return;
+  }
+
+  feedback.textContent = message;
+  feedback.hidden = hidden;
+
+  feedback.classList.toggle(
+    "deal-submission-feedback--error",
+    isError
+  );
+};
+
+const openDealSubmission = () => {
+  const overlay = document.querySelector(
+    SELECTORS.dealSubmissionOverlay
+  );
+
+  if (!overlay) {
+    return;
+  }
+
+  overlay.hidden = false;
+
+  document.body.classList.add(
+    "deal-submission-open"
+  );
+
+  setDealSubmissionFeedback({
+    hidden: true,
+  });
+
+  const firstField = overlay.querySelector(
+    'input[name="business_name"]'
+  );
+
+  window.requestAnimationFrame(() => {
+    firstField?.focus();
+  });
+};
+
+const closeDealSubmission = () => {
+  const overlay = document.querySelector(
+    SELECTORS.dealSubmissionOverlay
+  );
+
+  if (!overlay) {
+    return;
+  }
+
+  overlay.hidden = true;
+
+  document.body.classList.remove(
+    "deal-submission-open"
+  );
+
+  document
+    .querySelector(
+      SELECTORS.openDealSubmission
+    )
+    ?.focus();
+};
+
+const serializeDealSubmission = (form) => {
+  const formData = new FormData(form);
+
+  const payload = {
+    business_name:
+      formData.get("business_name"),
+    business_email:
+      formData.get("business_email"),
+    title: formData.get("title"),
+    category: formData.get("category"),
+    discount_text:
+      formData.get("discount_text"),
+    description:
+      formData.get("description"),
+    location_name:
+      formData.get("location_name"),
+    redemption_instructions:
+      formData.get(
+        "redemption_instructions"
+      ),
+    promo_code:
+      formData.get("promo_code"),
+    terms: formData.get("terms"),
+  };
+
+  const expirationValue =
+    formData.get("expires_at");
+
+  if (
+    typeof expirationValue === "string" &&
+    expirationValue.trim()
+  ) {
+    const expirationDate =
+      new Date(expirationValue);
+
+    if (
+      !Number.isNaN(
+        expirationDate.getTime()
+      )
+    ) {
+      payload.expires_at =
+        expirationDate.toISOString();
+    }
+  }
+
+  return payload;
+};
+
+const setDealSubmissionLoading = (
+  isLoading
+) => {
+  const submitButton = document.querySelector(
+    SELECTORS.dealSubmissionSubmit
+  );
+
+  const submitLabel = document.querySelector(
+    SELECTORS.dealSubmitLabel
+  );
+
+  if (submitButton) {
+    submitButton.disabled = isLoading;
+  }
+
+  if (submitLabel) {
+    submitLabel.textContent = isLoading
+      ? "Submitting..."
+      : "Submit for review";
+  }
+};
+
+const submitStudentDeal = async (form) => {
+  if (!form.reportValidity()) {
+    return;
+  }
+
+  setDealSubmissionLoading(true);
+
+  setDealSubmissionFeedback({
+    message: "Submitting your deal...",
+  });
+
+  try {
+    const response = await fetch(
+      STUDENT_DEALS_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          serializeDealSubmission(form)
+        ),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error?.message ||
+        "The deal could not be submitted."
+      );
+    }
+
+    setDealSubmissionFeedback({
+      message:
+        data.message ||
+        "Your deal was submitted for review.",
+    });
+
+    form.reset();
+
+    window.setTimeout(() => {
+      closeDealSubmission();
+    }, 1600);
+  } catch (error) {
+    setDealSubmissionFeedback({
+      message:
+        error instanceof Error
+          ? error.message
+          : "The deal could not be submitted.",
+      isError: true,
+    });
+  } finally {
+    setDealSubmissionLoading(false);
+  }
+};
+
+const initializeDealSubmission = () => {
+  const overlay = document.querySelector(
+    SELECTORS.dealSubmissionOverlay
+  );
+
+  const form = document.querySelector(
+    SELECTORS.dealSubmissionForm
+  );
+
+  if (!overlay || !form) {
+    return;
+  }
+
+  document
+    .querySelector(
+      SELECTORS.openDealSubmission
+    )
+    ?.addEventListener(
+      "click",
+      openDealSubmission
+    );
+
+  document
+    .querySelectorAll(
+      SELECTORS.closeDealSubmission
+    )
+    .forEach((button) => {
+      button.addEventListener(
+        "click",
+        closeDealSubmission
+      );
+    });
+
+  overlay.addEventListener(
+    "click",
+    (event) => {
+      if (event.target === overlay) {
+        closeDealSubmission();
+      }
+    }
+  );
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (
+        event.key === "Escape" &&
+        !overlay.hidden
+      ) {
+        closeDealSubmission();
+      }
+    }
+  );
+
+  form.addEventListener(
+    "submit",
+    (event) => {
+      event.preventDefault();
+
+      void submitStudentDeal(form);
+    }
+  );
 };
 
 const initializeStudentDeals = () => {
@@ -5442,6 +5721,7 @@ const initializeDashboard = () => {
   initializeDashboardNavigation();
   initializeDiscoveryHub();
   initializeStudentDeals();
+  initializeDealSubmission();
   initializeInspectorTabs();
   initializeInspectorResults();
   activateInspectorTab("map");
