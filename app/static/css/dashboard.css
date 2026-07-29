@@ -2613,6 +2613,425 @@ svg {
   height: 42px;
 }
 
+.student-deals-view {
+  min-height: 0;
+  overflow: auto;
+  padding: 40px 34px 56px;
+}
+
+.student-deals-view[hidden] {
+  display: none;
+}
+
+.student-deals-content {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+}
+
+.student-deals-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 28px;
+}
+
+.student-deals-hero > div:first-child {
+  max-width: 720px;
+}
+
+.student-deals-eyebrow {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--dashboard-accent);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.student-deals-hero h1 {
+  font-size: clamp(2rem, 3vw, 2.75rem);
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.student-deals-hero p {
+  max-width: 650px;
+  margin-top: 15px;
+  color: var(--dashboard-muted);
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
+.student-deals-location {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 15px;
+  color: var(--dashboard-text);
+  background: var(--dashboard-surface-raised);
+  border: 1px solid var(--dashboard-border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.student-deals-location svg {
+  width: 17px;
+  height: 17px;
+  color: var(--dashboard-accent);
+}
+
+.student-deals-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(201, 137, 43, 0.12),
+      rgba(201, 137, 43, 0.035)
+    ),
+    var(--dashboard-surface-raised);
+  border: 1px solid rgba(201, 137, 43, 0.26);
+  border-radius: 18px;
+}
+
+.student-deals-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.student-deals-summary-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--dashboard-accent);
+  background: var(--dashboard-accent-soft);
+  border-radius: 13px;
+}
+
+.student-deals-summary-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.student-deals-summary strong,
+.student-deals-summary span {
+  display: block;
+}
+
+.student-deals-summary strong {
+  margin-bottom: 3px;
+  font-size: 0.92rem;
+}
+
+.student-deals-summary div span {
+  color: var(--dashboard-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.student-deals-count {
+  flex: 0 0 auto;
+  color: var(--dashboard-accent);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.student-deals-toolbar {
+  display: grid;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.student-deals-search {
+  display: flex;
+  width: min(100%, 520px);
+  min-height: 46px;
+  align-items: center;
+  gap: 11px;
+  padding: 0 15px;
+  background: var(--dashboard-surface-raised);
+  border: 1px solid var(--dashboard-border);
+  border-radius: 13px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.student-deals-search:focus-within {
+  border-color: rgba(201, 137, 43, 0.65);
+  box-shadow: 0 0 0 3px rgba(201, 137, 43, 0.1);
+}
+
+.student-deals-search svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--dashboard-muted);
+}
+
+.student-deals-search input {
+  width: 100%;
+  color: var(--dashboard-text);
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.student-deals-search input::placeholder {
+  color: var(--dashboard-subtle);
+}
+
+.student-deals-filters {
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+  scrollbar-width: thin;
+}
+
+.student-deal-filter {
+  min-height: 38px;
+  flex: 0 0 auto;
+  padding: 0 15px;
+  color: var(--dashboard-muted);
+  background: var(--dashboard-surface-raised);
+  border: 1px solid var(--dashboard-border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.student-deal-filter:hover,
+.student-deal-filter--active {
+  color: var(--dashboard-text);
+  background: var(--dashboard-accent-soft);
+  border-color: rgba(201, 137, 43, 0.42);
+}
+
+.student-deals-state {
+  display: flex;
+  min-height: 150px;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 26px;
+  text-align: left;
+  background: var(--dashboard-surface-raised);
+  border: 1px solid var(--dashboard-border);
+  border-radius: 20px;
+}
+
+.student-deals-state[hidden] {
+  display: none;
+}
+
+.student-deals-state--error {
+  border-color: rgba(205, 88, 88, 0.45);
+}
+
+.student-deals-state-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--dashboard-accent);
+  background: var(--dashboard-accent-soft);
+  border-radius: 15px;
+}
+
+.student-deals-state-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.student-deals-state h2 {
+  font-size: 1rem;
+}
+
+.student-deals-state p {
+  margin-top: 5px;
+  color: var(--dashboard-muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.student-deals-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.student-deals-grid[hidden] {
+  display: none;
+}
+
+.student-deal-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 280px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.018),
+      transparent 35%
+    ),
+    var(--dashboard-surface-raised);
+  border: 1px solid var(--dashboard-border);
+  border-radius: 19px;
+  transition:
+    border-color 170ms ease,
+    transform 170ms ease;
+}
+
+.student-deal-card:hover {
+  border-color: rgba(201, 137, 43, 0.5);
+  transform: translateY(-3px);
+}
+
+.student-deal-card--featured {
+  border-color: rgba(201, 137, 43, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 18px 45px rgba(0, 0, 0, 0.14);
+}
+
+.student-deal-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.student-deal-category {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 0 11px;
+  color: var(--dashboard-muted);
+  background: var(--dashboard-surface-soft);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.student-deal-featured-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dashboard-accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.student-deal-featured-label svg {
+  width: 15px;
+  height: 15px;
+}
+
+.student-deal-discount {
+  margin-bottom: 11px;
+  color: var(--dashboard-accent);
+  font-size: 1.45rem;
+  font-weight: 850;
+  letter-spacing: -0.04em;
+}
+
+.student-deal-card h2 {
+  margin-bottom: 5px;
+  font-size: 1.08rem;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+
+.student-deal-business {
+  margin-bottom: 13px;
+  color: var(--dashboard-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.student-deal-description {
+  margin-bottom: 18px;
+  color: #c2ccca;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.student-deal-card-footer {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 17px;
+  border-top: 1px solid var(--dashboard-border);
+}
+
+.student-deal-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--dashboard-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.student-deal-meta svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--dashboard-accent);
+}
+
+.student-deal-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(201, 137, 43, 0.09);
+  border: 1px dashed rgba(201, 137, 43, 0.32);
+  border-radius: 11px;
+}
+
+.student-deal-code span {
+  color: var(--dashboard-muted);
+  font-size: 0.7rem;
+}
+
+.student-deal-code strong {
+  overflow: hidden;
+  color: var(--dashboard-text);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 1260px) {
   :root {
     --sidebar-width: 250px;
@@ -2819,6 +3238,11 @@ svg {
 }
 
 @media (max-width: 1000px) {
+  .student-deals-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
   .discovery-track {
     grid-template-columns:
       repeat(3, minmax(0, 1fr));
@@ -2826,6 +3250,23 @@ svg {
 }
 
 @media (max-width: 700px) {
+  .student-deals-view {
+    padding: 28px 18px 44px;
+  }
+
+  .student-deals-hero {
+    display: grid;
+    align-items: start;
+  }
+
+  .student-deals-location {
+    justify-self: start;
+  }
+
+  .student-deals-summary {
+    align-items: flex-start;
+  }
+
   .saved-places-view {
     padding: 28px 18px;
   }
@@ -2863,6 +3304,22 @@ svg {
 }
 
 @media (max-width: 480px) {
+  .student-deals-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-deals-summary {
+    display: grid;
+  }
+
+  .student-deals-count {
+    margin-left: 56px;
+  }
+
+  .student-deal-card {
+    min-height: 260px;
+  }
+
   .discovery-hero {
     padding-bottom: 30px;
   }

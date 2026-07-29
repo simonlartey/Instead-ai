@@ -132,9 +132,10 @@
         </a>
 
         <a
-          href="#"
+          href="#student-deals"
           class="sidebar-link nav-link"
           aria-label="Student Deals"
+          data-dashboard-navigation="deals"
         >
           <span
             aria-hidden="true"
@@ -679,6 +680,195 @@
           <section
             class="discovery-collections"
             data-discovery-collections
+            hidden
+          ></section>
+        </div>
+      </section>
+
+      <section
+        id="student-deals"
+        class="student-deals-view"
+        data-dashboard-view="deals"
+        aria-labelledby="student-deals-title"
+        hidden
+      >
+        <div class="student-deals-content">
+          <header class="student-deals-hero">
+            <div>
+              <span class="student-deals-eyebrow">
+                Local student savings
+              </span>
+
+              <h1 id="student-deals-title">
+                Student Deals
+              </h1>
+
+              <p>
+                Discover verified discounts submitted by local
+                businesses and approved by Instead.
+              </p>
+            </div>
+
+            <div class="student-deals-location">
+              <span
+                aria-hidden="true"
+                data-lucide="map-pin"
+              ></span>
+
+              <span data-student-deals-location>
+                Portland, ME
+              </span>
+            </div>
+          </header>
+
+          <section
+            class="student-deals-summary"
+            aria-label="Student deals summary"
+          >
+            <div>
+              <span
+                class="student-deals-summary-icon"
+                aria-hidden="true"
+                data-lucide="badge-check"
+              ></span>
+
+              <div>
+                <strong>Approved local offers</strong>
+
+                <span>
+                  Every visible offer has been reviewed before
+                  appearing here.
+                </span>
+              </div>
+            </div>
+
+            <span
+              class="student-deals-count"
+              data-student-deals-count
+            >
+              0 deals
+            </span>
+          </section>
+
+          <div
+            class="student-deals-toolbar"
+            role="toolbar"
+            aria-label="Filter student deals"
+          >
+            <label class="student-deals-search">
+              <span
+                aria-hidden="true"
+                data-lucide="search"
+              ></span>
+
+              <span class="sr-only">
+                Search student deals
+              </span>
+
+              <input
+                type="search"
+                placeholder="Search deals or businesses"
+                autocomplete="off"
+                data-student-deals-search
+              />
+            </label>
+
+            <div
+              class="student-deals-filters"
+              data-student-deals-filters
+            >
+              <button
+                type="button"
+                class="student-deal-filter student-deal-filter--active"
+                data-student-deal-filter="all"
+                aria-pressed="true"
+              >
+                All
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="food"
+                aria-pressed="false"
+              >
+                Food
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="coffee"
+                aria-pressed="false"
+              >
+                Coffee
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="shopping"
+                aria-pressed="false"
+              >
+                Shopping
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="services"
+                aria-pressed="false"
+              >
+                Services
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="entertainment"
+                aria-pressed="false"
+              >
+                Entertainment
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="wellness"
+                aria-pressed="false"
+              >
+                Wellness
+              </button>
+            </div>
+          </div>
+
+          <section
+            class="student-deals-state"
+            data-student-deals-state
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              class="student-deals-state-icon"
+              aria-hidden="true"
+              data-lucide="loader-circle"
+            ></span>
+
+            <div>
+              <h2 data-student-deals-state-title>
+                Loading student deals
+              </h2>
+
+              <p data-student-deals-state-message>
+                Checking for approved offers near you.
+              </p>
+            </div>
+          </section>
+
+          <section
+            class="student-deals-grid"
+            data-student-deals-grid
+            aria-label="Available student deals"
             hidden
           ></section>
         </div>

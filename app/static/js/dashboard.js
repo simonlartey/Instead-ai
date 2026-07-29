@@ -78,6 +78,24 @@ const SELECTORS = {
     "[data-discovery-status-title]",
   discoveryStatusMessage:
     "[data-discovery-status-message]",
+  studentDealsView:
+    '[data-dashboard-view="deals"]',
+  studentDealsGrid:
+    "[data-student-deals-grid]",
+  studentDealsState:
+    "[data-student-deals-state]",
+  studentDealsStateTitle:
+    "[data-student-deals-state-title]",
+  studentDealsStateMessage:
+    "[data-student-deals-state-message]",
+  studentDealsCount:
+    "[data-student-deals-count]",
+  studentDealsSearch:
+    "[data-student-deals-search]",
+  studentDealFilter:
+    "[data-student-deal-filter]",
+  studentDealsLocation:
+    "[data-student-deals-location]",
 };
 
 const DEFAULT_LOCATION = Object.freeze({
@@ -96,6 +114,13 @@ const SAVED_PLACE_RECORDS_STORAGE_KEY =
   "cityguide:saved-places";
 
 const SEARCH_TIMEOUT_MILLISECONDS = 30000;
+
+const STUDENT_DEALS_ENDPOINT =
+  "/api/v1/deals";
+
+let studentDeals = [];
+let activeStudentDealFilter = "all";
+let studentDealsLoaded = false;
 
 const DISCOVERY_MOODS = Object.freeze([
   {
@@ -2190,11 +2215,513 @@ const initializeDiscoveryHub = () => {
   );
 };
 
+const formatStudentDealCategory = (category) => {
+  if (
+    typeof category !== "string" ||
+    category.length === 0
+  ) {
+    return "Other";
+  }
+
+  return category
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (character) =>
+      character.toUpperCase()
+    );
+};
+
+const formatStudentDealExpiration = (
+  expiresAt
+) => {
+  if (!expiresAt) {
+    return "No listed expiration";
+  }
+
+  const expirationDate = new Date(expiresAt);
+
+  if (Number.isNaN(expirationDate.getTime())) {
+    return "Expiration date unavailable";
+  }
+
+  return `Expires ${expirationDate.toLocaleDateString(
+    undefined,
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }
+  )}`;
+};
+
+const setStudentDealsState = ({
+  title,
+  message,
+  hidden = false,
+  isError = false,
+  icon = "loader-circle",
+}) => {
+  const state = document.querySelector(
+    SELECTORS.studentDealsState
+  );
+
+  const titleElement = document.querySelector(
+    SELECTORS.studentDealsStateTitle
+  );
+
+  const messageElement = document.querySelector(
+    SELECTORS.studentDealsStateMessage
+  );
+
+  if (!state || !titleElement || !messageElement) {
+    return;
+  }
+
+  state.hidden = hidden;
+
+  state.classList.toggle(
+    "student-deals-state--error",
+    isError
+  );
+
+  titleElement.textContent = title;
+  messageElement.textContent = message;
+
+  const iconElement = state.querySelector(
+    "[data-lucide]"
+  );
+
+  if (iconElement) {
+    iconElement.setAttribute(
+      "data-lucide",
+      icon
+    );
+  }
+
+  hydrateDashboardIcons();
+};
+
+const createStudentDealMeta = ({
+  icon,
+  text,
+}) => {
+  const row = document.createElement("div");
+
+  row.className = "student-deal-meta";
+
+  const iconElement =
+    document.createElement("span");
+
+  iconElement.setAttribute(
+    "aria-hidden",
+    "true"
+  );
+
+  iconElement.setAttribute(
+    "data-lucide",
+    icon
+  );
+
+  const textElement =
+    document.createElement("span");
+
+  textElement.textContent = text;
+
+  row.append(
+    iconElement,
+    textElement
+  );
+
+  return row;
+};
+
+const createStudentDealCard = (deal) => {
+  const card = document.createElement("article");
+
+  card.className = "student-deal-card";
+
+  if (deal.is_featured) {
+    card.classList.add(
+      "student-deal-card--featured"
+    );
+  }
+
+  const header = document.createElement("div");
+
+  header.className = "student-deal-card-header";
+
+  const category =
+    document.createElement("span");
+
+  category.className = "student-deal-category";
+  category.textContent =
+    formatStudentDealCategory(deal.category);
+
+  header.append(category);
+
+  if (deal.is_featured) {
+    const featured =
+      document.createElement("span");
+
+    featured.className =
+      "student-deal-featured-label";
+
+    const featuredIcon =
+      document.createElement("span");
+
+    featuredIcon.setAttribute(
+      "aria-hidden",
+      "true"
+    );
+
+    featuredIcon.setAttribute(
+      "data-lucide",
+      "sparkles"
+    );
+
+    const featuredText =
+      document.createElement("span");
+
+    featuredText.textContent = "Featured";
+
+    featured.append(
+      featuredIcon,
+      featuredText
+    );
+
+    header.append(featured);
+  }
+
+  const discount =
+    document.createElement("div");
+
+  discount.className =
+    "student-deal-discount";
+
+  discount.textContent =
+    deal.discount_text || "Student offer";
+
+  const title = document.createElement("h2");
+
+  title.textContent =
+    deal.title || "Student deal";
+
+  const business =
+    document.createElement("p");
+
+  business.className =
+    "student-deal-business";
+
+  business.textContent =
+    deal.business_name || "Local business";
+
+  const description =
+    document.createElement("p");
+
+  description.className =
+    "student-deal-description";
+
+  description.textContent =
+    deal.description ||
+    "Student discount details are available from the business.";
+
+  const footer = document.createElement("div");
+
+  footer.className =
+    "student-deal-card-footer";
+
+  footer.append(
+    createStudentDealMeta({
+      icon: "map-pin",
+      text:
+        deal.location_name ||
+        "Location unavailable",
+    }),
+    createStudentDealMeta({
+      icon: "badge-check",
+      text:
+        deal.redemption_instructions ||
+        "Show a valid student ID.",
+    }),
+    createStudentDealMeta({
+      icon: "calendar-days",
+      text: formatStudentDealExpiration(
+        deal.expires_at
+      ),
+    })
+  );
+
+  if (deal.promo_code) {
+    const code = document.createElement("div");
+
+    code.className = "student-deal-code";
+
+    const codeLabel =
+      document.createElement("span");
+
+    codeLabel.textContent = "Promo code";
+
+    const codeValue =
+      document.createElement("strong");
+
+    codeValue.textContent = deal.promo_code;
+
+    code.append(
+      codeLabel,
+      codeValue
+    );
+
+    footer.append(code);
+  }
+
+  card.append(
+    header,
+    discount,
+    title,
+    business,
+    description,
+    footer
+  );
+
+  return card;
+};
+
+const getFilteredStudentDeals = () => {
+  const searchInput = document.querySelector(
+    SELECTORS.studentDealsSearch
+  );
+
+  const searchTerm =
+    searchInput?.value
+      .trim()
+      .toLowerCase() || "";
+
+  return studentDeals.filter((deal) => {
+    const matchesCategory =
+      activeStudentDealFilter === "all" ||
+      deal.category === activeStudentDealFilter;
+
+    if (!matchesCategory) {
+      return false;
+    }
+
+    if (!searchTerm) {
+      return true;
+    }
+
+    const searchableText = [
+      deal.business_name,
+      deal.title,
+      deal.description,
+      deal.discount_text,
+      deal.location_name,
+      deal.category,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(searchTerm);
+  });
+};
+
+const renderStudentDeals = () => {
+  const grid = document.querySelector(
+    SELECTORS.studentDealsGrid
+  );
+
+  const count = document.querySelector(
+    SELECTORS.studentDealsCount
+  );
+
+  if (!grid || !count) {
+    return;
+  }
+
+  const filteredDeals =
+    getFilteredStudentDeals();
+
+  const dealLabel =
+    filteredDeals.length === 1
+      ? "deal"
+      : "deals";
+
+  count.textContent =
+    `${filteredDeals.length} ${dealLabel}`;
+
+  if (filteredDeals.length === 0) {
+    grid.hidden = true;
+    grid.replaceChildren();
+
+    const hasFilters =
+      activeStudentDealFilter !== "all" ||
+      Boolean(
+        document
+          .querySelector(
+            SELECTORS.studentDealsSearch
+          )
+          ?.value.trim()
+      );
+
+    setStudentDealsState({
+      title: hasFilters
+        ? "No matching deals"
+        : "No student deals yet",
+      message: hasFilters
+        ? "Try a different search or category."
+        : (
+          "Approved local offers will appear here " +
+          "as businesses submit them."
+        ),
+      icon: hasFilters
+        ? "search-x"
+        : "badge-percent",
+    });
+
+    return;
+  }
+
+  grid.replaceChildren(
+    ...filteredDeals.map(
+      createStudentDealCard
+    )
+  );
+
+  grid.hidden = false;
+
+  setStudentDealsState({
+    title: "",
+    message: "",
+    hidden: true,
+  });
+
+  hydrateDashboardIcons();
+};
+
+const loadStudentDeals = async () => {
+  if (studentDealsLoaded) {
+    renderStudentDeals();
+    return;
+  }
+
+  const grid = document.querySelector(
+    SELECTORS.studentDealsGrid
+  );
+
+  if (!grid) {
+    return;
+  }
+
+  grid.hidden = true;
+
+  setStudentDealsState({
+    title: "Loading student deals",
+    message:
+      "Checking for approved offers near you.",
+    icon: "loader-circle",
+  });
+
+  try {
+    const response = await fetch(
+      STUDENT_DEALS_ENDPOINT,
+      {
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Student deals could not be loaded."
+      );
+    }
+
+    const data = await response.json();
+
+    studentDeals = Array.isArray(data.deals)
+      ? data.deals
+      : [];
+
+    studentDealsLoaded = true;
+
+    renderStudentDeals();
+  } catch (error) {
+    console.error(
+      "Instead student deals failed:",
+      error
+    );
+
+    setStudentDealsState({
+      title: "Student deals unavailable",
+      message:
+        "Please try opening this page again in a moment.",
+      isError: true,
+      icon: "circle-alert",
+    });
+  }
+};
+
+const initializeStudentDeals = () => {
+  const dealsView = document.querySelector(
+    SELECTORS.studentDealsView
+  );
+
+  if (!dealsView) {
+    return;
+  }
+
+  document
+    .querySelector(
+      SELECTORS.studentDealsSearch
+    )
+    ?.addEventListener(
+      "input",
+      renderStudentDeals
+    );
+
+  document
+    .querySelectorAll(
+      SELECTORS.studentDealFilter
+    )
+    .forEach((filterButton) => {
+      filterButton.addEventListener(
+        "click",
+        () => {
+          activeStudentDealFilter =
+            filterButton.dataset
+              .studentDealFilter || "all";
+
+          document
+            .querySelectorAll(
+              SELECTORS.studentDealFilter
+            )
+            .forEach((button) => {
+              const isActive =
+                button === filterButton;
+
+              button.classList.toggle(
+                "student-deal-filter--active",
+                isActive
+              );
+
+              button.setAttribute(
+                "aria-pressed",
+                String(isActive)
+              );
+            });
+
+          renderStudentDeals();
+        }
+      );
+    });
+};
+
 const setDashboardView = (viewName) => {
   const supportedViews = new Set([
     "explore",
     "saved",
     "categories",
+    "deals",
   ]);
 
   activeDashboardView = supportedViews.has(viewName)
@@ -2249,6 +2776,20 @@ const setDashboardView = (viewName) => {
 
   if (activeDashboardView === "categories") {
     void renderDiscoveryHub();
+  }
+
+  if (activeDashboardView === "deals") {
+    const locationLabel =
+      document.querySelector(
+        SELECTORS.studentDealsLocation
+      );
+
+    if (locationLabel) {
+      locationLabel.textContent =
+        selectedLocation.label;
+    }
+
+    void loadStudentDeals();
   }
 
   hydrateDashboardIcons();
@@ -4900,6 +5441,7 @@ const initializeDashboard = () => {
   initializeSavedPlaces();
   initializeDashboardNavigation();
   initializeDiscoveryHub();
+  initializeStudentDeals();
   initializeInspectorTabs();
   initializeInspectorResults();
   activateInspectorTab("map");
