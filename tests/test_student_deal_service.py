@@ -11,6 +11,8 @@ from app.models.student_deal import (
 )
 from app.schemas.student_deal import StudentDealSubmission
 from app.services.student_deal_service import (
+    InvalidDealStatusTransitionError,
+    StudentDealNotFoundError,
     StudentDealService,
 )
 
@@ -287,3 +289,176 @@ def test_list_active_deals_rejects_naive_reference_time(app):
             service.list_active_deals(
                 now=datetime(2026, 8, 15, 12, 0)
             )
+
+
+def test_list_pending_deals_returns_only_pending_submissions(
+    app,
+):
+    with app.app_context():
+        first_pending = build_deal(
+            title="First pending deal",
+            status=DealStatus.PENDING,
+        )
+        approved = build_deal(
+            title="Approved deal",
+            status=DealStatus.APPROVED,
+        )
+        second_pending = build_deal(
+            title="Second pending deal",
+            status=DealStatus.PENDING,
+        )
+        rejected = build_deal(
+            title="Rejected deal",
+            status=DealStatus.REJECTED,
+        )
+
+        db.session.add_all(
+            [
+                first_pending,
+                approved,
+                second_pending,
+                rejected,
+            ]
+        )
+        db.session.commit()
+
+        deals = StudentDealService().list_pending_deals()
+
+        assert [
+            deal.title for deal in deals
+        ] == [
+            "First pending deal",
+            "Second pending deal",
+        ]
+
+
+def test_approve_deal_changes_pending_deal_to_approved(
+    app,
+):
+    with app.app_context():
+        deal = build_deal(
+            status=DealStatus.PENDING,
+        )
+
+        db.session.add(deal)
+        db.session.commit()
+
+        approved_deal = (
+            StudentDealService().approve_deal(
+                deal.id
+            )
+        )
+
+        stored_deal = db.session.get(
+            StudentDeal,
+            deal.id,
+        )
+
+        assert approved_deal.status is DealStatus.APPROVED
+        assert stored_deal is not None
+        assert stored_deal.status is DealStatus.APPROVED
+
+
+def test_reject_deal_changes_pending_deal_to_rejected(
+    app,
+):
+    with app.app_context():
+        deal = build_deal(
+            status=DealStatus.PENDING,
+        )
+
+        db.session.add(deal)
+        db.session.commit()
+
+        rejected_deal = (
+            StudentDealService().reject_deal(
+                deal.id
+            )
+        )
+
+        stored_deal = db.session.get(
+            StudentDeal,
+            deal.id,
+        )
+
+        assert rejected_deal.status is DealStatus.REJECTED
+        assert stored_deal is not None
+        assert stored_deal.status is DealStatus.REJECTED
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        DealStatus.APPROVED,
+        DealStatus.REJECTED,
+        DealStatus.PAUSED,
+        DealStatus.EXPIRED,
+    ],
+)
+def test_approve_deal_rejects_non_pending_status(
+    app,
+    status,
+):
+    with app.app_context():
+        deal = build_deal(
+            status=status,
+        )
+
+        db.session.add(deal)
+        db.session.commit()
+
+        with pytest.raises(
+            InvalidDealStatusTransitionError,
+            match="Only pending deals can be reviewed.",
+        ):
+            StudentDealService().approve_deal(
+                deal.id
+            )
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        DealStatus.APPROVED,
+        DealStatus.REJECTED,
+        DealStatus.PAUSED,
+        DealStatus.EXPIRED,
+    ],
+)
+def test_reject_deal_rejects_non_pending_status(
+    app,
+    status,
+):
+    with app.app_context():
+        deal = build_deal(
+            status=status,
+        )
+
+        db.session.add(deal)
+        db.session.commit()
+
+        with pytest.raises(
+            InvalidDealStatusTransitionError,
+            match="Only pending deals can be reviewed.",
+        ):
+            StudentDealService().reject_deal(
+                deal.id
+            )
+
+
+def test_approve_deal_rejects_unknown_deal_id(app):
+    with app.app_context():
+        with pytest.raises(
+            StudentDealNotFoundError,
+            match="Student deal 999 was not found.",
+        ):
+            StudentDealService().approve_deal(999)
+
+
+def test_reject_deal_rejects_unknown_deal_id(app):
+    with app.app_context():
+        with pytest.raises(
+            StudentDealNotFoundError,
+            match="Student deal 999 was not found.",
+        ):
+            StudentDealService().reject_deal(999)

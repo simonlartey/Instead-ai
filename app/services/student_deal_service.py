@@ -11,6 +11,14 @@ from app.models.student_deal import (
 from app.schemas.student_deal import StudentDealSubmission
 
 
+class StudentDealNotFoundError(LookupError):
+    """Raised when a student deal cannot be found."""
+
+
+class InvalidDealStatusTransitionError(ValueError):
+    """Raised when a deal cannot move to the requested status."""
+
+
 class StudentDealService:
     """Manage student deal submissions and discovery."""
 
@@ -82,3 +90,72 @@ class StudentDealService:
         return list(
             db.session.scalars(statement).all()
         )
+
+    def list_pending_deals(
+        self,
+    ) -> list[StudentDeal]:
+        """Return pending submissions in review order."""
+
+        statement = (
+            select(StudentDeal)
+            .where(
+                StudentDeal.status == DealStatus.PENDING
+            )
+            .order_by(
+                StudentDeal.created_at.asc(),
+                StudentDeal.id.asc(),
+            )
+        )
+
+        return list(
+            db.session.scalars(statement).all()
+        )
+
+    def approve_deal(
+        self,
+        deal_id: int,
+    ) -> StudentDeal:
+        """Approve a pending student deal."""
+
+        deal = self._get_pending_deal(deal_id)
+
+        deal.status = DealStatus.APPROVED
+
+        db.session.commit()
+
+        return deal
+
+    def reject_deal(
+        self,
+        deal_id: int,
+    ) -> StudentDeal:
+        """Reject a pending student deal."""
+
+        deal = self._get_pending_deal(deal_id)
+
+        deal.status = DealStatus.REJECTED
+
+        db.session.commit()
+
+        return deal
+
+    @staticmethod
+    def _get_pending_deal(
+        deal_id: int,
+    ) -> StudentDeal:
+        deal = db.session.get(
+            StudentDeal,
+            deal_id,
+        )
+
+        if deal is None:
+            raise StudentDealNotFoundError(
+                f"Student deal {deal_id} was not found."
+            )
+
+        if deal.status is not DealStatus.PENDING:
+            raise InvalidDealStatusTransitionError(
+                "Only pending deals can be reviewed."
+            )
+
+        return deal
