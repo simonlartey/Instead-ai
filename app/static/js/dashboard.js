@@ -78,6 +78,54 @@ const SELECTORS = {
     "[data-discovery-status-title]",
   discoveryStatusMessage:
     "[data-discovery-status-message]",
+  studentDealsView:
+    '[data-dashboard-view="deals"]',
+  studentDealsGrid:
+    "[data-student-deals-grid]",
+  studentDealsState:
+    "[data-student-deals-state]",
+  studentDealsStateTitle:
+    "[data-student-deals-state-title]",
+  studentDealsStateMessage:
+    "[data-student-deals-state-message]",
+  studentDealsCount:
+    "[data-student-deals-count]",
+  studentDealsSearch:
+    "[data-student-deals-search]",
+  studentDealFilter:
+    "[data-student-deal-filter]",
+  studentDealsLocation:
+    "[data-student-deals-location]",
+  openDealSubmission:
+    "[data-open-deal-submission]",
+  closeDealSubmission:
+    "[data-close-deal-submission]",
+  dealSubmissionOverlay:
+    "[data-deal-submission-overlay]",
+  dealSubmissionForm:
+    "[data-deal-submission-form]",
+  dealSubmissionFeedback:
+    "[data-deal-submission-feedback]",
+  dealSubmissionSubmit:
+    "[data-deal-submission-submit]",
+  dealSubmitLabel:
+    "[data-deal-submit-label]",
+  openDealReview:
+    "[data-open-deal-review]",
+  closeDealReview:
+    "[data-close-deal-review]",
+  dealReviewOverlay:
+    "[data-deal-review-overlay]",
+  dealReviewList:
+    "[data-deal-review-list]",
+  dealReviewState:
+    "[data-deal-review-state]",
+  dealReviewStateTitle:
+    "[data-deal-review-state-title]",
+  dealReviewStateMessage:
+    "[data-deal-review-state-message]",
+  dealReviewCount:
+    "[data-deal-review-count]",
 };
 
 const DEFAULT_LOCATION = Object.freeze({
@@ -96,6 +144,19 @@ const SAVED_PLACE_RECORDS_STORAGE_KEY =
   "cityguide:saved-places";
 
 const SEARCH_TIMEOUT_MILLISECONDS = 30000;
+
+const STUDENT_DEALS_ENDPOINT =
+  "/api/v1/deals";
+
+const PENDING_DEALS_ENDPOINT =
+  "/api/v1/admin/deals/pending";
+
+const DEAL_MODERATION_ENDPOINT =
+  "/api/v1/admin/deals";
+
+let studentDeals = [];
+let activeStudentDealFilter = "all";
+let studentDealsLoaded = false;
 
 const DISCOVERY_MOODS = Object.freeze([
   {
@@ -2190,11 +2251,1394 @@ const initializeDiscoveryHub = () => {
   );
 };
 
+const formatStudentDealCategory = (category) => {
+  if (
+    typeof category !== "string" ||
+    category.length === 0
+  ) {
+    return "Other";
+  }
+
+  return category
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (character) =>
+      character.toUpperCase()
+    );
+};
+
+const formatStudentDealExpiration = (
+  expiresAt
+) => {
+  if (!expiresAt) {
+    return "No listed expiration";
+  }
+
+  const expirationDate = new Date(expiresAt);
+
+  if (Number.isNaN(expirationDate.getTime())) {
+    return "Expiration date unavailable";
+  }
+
+  return `Expires ${expirationDate.toLocaleDateString(
+    undefined,
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }
+  )}`;
+};
+
+const setStudentDealsState = ({
+  title,
+  message,
+  hidden = false,
+  isError = false,
+  icon = "loader-circle",
+}) => {
+  const state = document.querySelector(
+    SELECTORS.studentDealsState
+  );
+
+  const titleElement = document.querySelector(
+    SELECTORS.studentDealsStateTitle
+  );
+
+  const messageElement = document.querySelector(
+    SELECTORS.studentDealsStateMessage
+  );
+
+  if (!state || !titleElement || !messageElement) {
+    return;
+  }
+
+  state.hidden = hidden;
+
+  state.classList.toggle(
+    "student-deals-state--error",
+    isError
+  );
+
+  titleElement.textContent = title;
+  messageElement.textContent = message;
+
+  const iconElement = state.querySelector(
+    "[data-lucide]"
+  );
+
+  if (iconElement) {
+    iconElement.setAttribute(
+      "data-lucide",
+      icon
+    );
+  }
+
+  hydrateDashboardIcons();
+};
+
+const createStudentDealMeta = ({
+  icon,
+  text,
+}) => {
+  const row = document.createElement("div");
+
+  row.className = "student-deal-meta";
+
+  const iconElement =
+    document.createElement("span");
+
+  iconElement.setAttribute(
+    "aria-hidden",
+    "true"
+  );
+
+  iconElement.setAttribute(
+    "data-lucide",
+    icon
+  );
+
+  const textElement =
+    document.createElement("span");
+
+  textElement.textContent = text;
+
+  row.append(
+    iconElement,
+    textElement
+  );
+
+  return row;
+};
+
+const createExternalDealLink = ({
+  url,
+  label,
+  className,
+  icon = "external-link",
+}) => {
+  if (
+    typeof url !== "string" ||
+    !url.trim()
+  ) {
+    return null;
+  }
+
+  const link = document.createElement("a");
+
+  link.className = className;
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+
+  const iconElement =
+    document.createElement("span");
+
+  iconElement.setAttribute(
+    "aria-hidden",
+    "true"
+  );
+
+  iconElement.setAttribute(
+    "data-lucide",
+    icon
+  );
+
+  const labelElement =
+    document.createElement("span");
+
+  labelElement.textContent = label;
+
+  link.append(
+    iconElement,
+    labelElement
+  );
+
+  return link;
+};
+
+const createStudentDealCard = (deal) => {
+  const card = document.createElement("article");
+
+  card.className = "student-deal-card";
+
+  if (deal.is_featured) {
+    card.classList.add(
+      "student-deal-card--featured"
+    );
+  }
+
+  const header = document.createElement("div");
+
+  header.className = "student-deal-card-header";
+
+  const category =
+    document.createElement("span");
+
+  category.className = "student-deal-category";
+  category.textContent =
+    formatStudentDealCategory(deal.category);
+
+  header.append(category);
+
+  if (deal.is_featured) {
+    const featured =
+      document.createElement("span");
+
+    featured.className =
+      "student-deal-featured-label";
+
+    const featuredIcon =
+      document.createElement("span");
+
+    featuredIcon.setAttribute(
+      "aria-hidden",
+      "true"
+    );
+
+    featuredIcon.setAttribute(
+      "data-lucide",
+      "sparkles"
+    );
+
+    const featuredText =
+      document.createElement("span");
+
+    featuredText.textContent = "Featured";
+
+    featured.append(
+      featuredIcon,
+      featuredText
+    );
+
+    header.append(featured);
+  }
+
+  const discount =
+    document.createElement("div");
+
+  discount.className =
+    "student-deal-discount";
+
+  discount.textContent =
+    deal.discount_text || "Student offer";
+
+  const title = document.createElement("h2");
+
+  title.textContent =
+    deal.title || "Student deal";
+
+  const business =
+    document.createElement("p");
+
+  business.className =
+    "student-deal-business";
+
+  business.textContent =
+    deal.business_name || "Local business";
+
+  const description =
+    document.createElement("p");
+
+  description.className =
+    "student-deal-description";
+
+  description.textContent =
+    deal.description ||
+    "Student discount details are available from the business.";
+
+  const footer = document.createElement("div");
+
+  footer.className =
+    "student-deal-card-footer";
+
+  footer.append(
+    createStudentDealMeta({
+      icon: "map-pin",
+      text:
+        deal.location_name ||
+        "Location unavailable",
+    }),
+    createStudentDealMeta({
+      icon: "badge-check",
+      text:
+        deal.redemption_instructions ||
+        "Show a valid student ID.",
+    }),
+    createStudentDealMeta({
+      icon: "calendar-days",
+      text: formatStudentDealExpiration(
+        deal.expires_at
+      ),
+    })
+  );
+
+  if (deal.promo_code) {
+    const code = document.createElement("div");
+
+    code.className = "student-deal-code";
+
+    const codeLabel =
+      document.createElement("span");
+
+    codeLabel.textContent = "Promo code";
+
+    const codeValue =
+      document.createElement("strong");
+
+    codeValue.textContent = deal.promo_code;
+
+    code.append(
+      codeLabel,
+      codeValue
+    );
+
+    footer.append(code);
+  }
+
+  const dealLink = createExternalDealLink({
+    url: deal.deal_url,
+    label: "View deal",
+    className: "student-deal-link",
+  });
+
+  if (dealLink) {
+    footer.append(dealLink);
+  }
+
+  card.append(
+    header,
+    discount,
+    title,
+    business,
+    description,
+    footer
+  );
+
+  return card;
+};
+
+const getFilteredStudentDeals = () => {
+  const searchInput = document.querySelector(
+    SELECTORS.studentDealsSearch
+  );
+
+  const searchTerm =
+    searchInput?.value
+      .trim()
+      .toLowerCase() || "";
+
+  return studentDeals.filter((deal) => {
+    const matchesCategory =
+      activeStudentDealFilter === "all" ||
+      deal.category === activeStudentDealFilter;
+
+    if (!matchesCategory) {
+      return false;
+    }
+
+    if (!searchTerm) {
+      return true;
+    }
+
+    const searchableText = [
+      deal.business_name,
+      deal.title,
+      deal.description,
+      deal.discount_text,
+      deal.location_name,
+      deal.category,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(searchTerm);
+  });
+};
+
+const renderStudentDeals = () => {
+  const grid = document.querySelector(
+    SELECTORS.studentDealsGrid
+  );
+
+  const count = document.querySelector(
+    SELECTORS.studentDealsCount
+  );
+
+  if (!grid || !count) {
+    return;
+  }
+
+  const filteredDeals =
+    getFilteredStudentDeals();
+
+  const dealLabel =
+    filteredDeals.length === 1
+      ? "deal"
+      : "deals";
+
+  count.textContent =
+    `${filteredDeals.length} ${dealLabel}`;
+
+  if (filteredDeals.length === 0) {
+    grid.hidden = true;
+    grid.replaceChildren();
+
+    const hasFilters =
+      activeStudentDealFilter !== "all" ||
+      Boolean(
+        document
+          .querySelector(
+            SELECTORS.studentDealsSearch
+          )
+          ?.value.trim()
+      );
+
+    setStudentDealsState({
+      title: hasFilters
+        ? "No matching deals"
+        : "No student deals yet",
+      message: hasFilters
+        ? "Try a different search or category."
+        : (
+          "Approved local offers will appear here " +
+          "as businesses submit them."
+        ),
+      icon: hasFilters
+        ? "search-x"
+        : "badge-percent",
+    });
+
+    return;
+  }
+
+  grid.replaceChildren(
+    ...filteredDeals.map(
+      createStudentDealCard
+    )
+  );
+
+  grid.hidden = false;
+
+  setStudentDealsState({
+    title: "",
+    message: "",
+    hidden: true,
+  });
+
+  hydrateDashboardIcons();
+};
+
+const loadStudentDeals = async () => {
+  if (studentDealsLoaded) {
+    renderStudentDeals();
+    return;
+  }
+
+  const grid = document.querySelector(
+    SELECTORS.studentDealsGrid
+  );
+
+  if (!grid) {
+    return;
+  }
+
+  grid.hidden = true;
+
+  setStudentDealsState({
+    title: "Loading student deals",
+    message:
+      "Checking for approved offers near you.",
+    icon: "loader-circle",
+  });
+
+  try {
+    const response = await fetch(
+      STUDENT_DEALS_ENDPOINT,
+      {
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Student deals could not be loaded."
+      );
+    }
+
+    const data = await response.json();
+
+    studentDeals = Array.isArray(data.deals)
+      ? data.deals
+      : [];
+
+    studentDealsLoaded = true;
+
+    renderStudentDeals();
+  } catch (error) {
+    console.error(
+      "Instead student deals failed:",
+      error
+    );
+
+    setStudentDealsState({
+      title: "Student deals unavailable",
+      message:
+        "Please try opening this page again in a moment.",
+      isError: true,
+      icon: "circle-alert",
+    });
+  }
+};
+
+const setDealSubmissionFeedback = ({
+  message = "",
+  isError = false,
+  hidden = false,
+}) => {
+  const feedback = document.querySelector(
+    SELECTORS.dealSubmissionFeedback
+  );
+
+  if (!feedback) {
+    return;
+  }
+
+  feedback.textContent = message;
+  feedback.hidden = hidden;
+
+  feedback.classList.toggle(
+    "deal-submission-feedback--error",
+    isError
+  );
+};
+
+const openDealSubmission = () => {
+  const overlay = document.querySelector(
+    SELECTORS.dealSubmissionOverlay
+  );
+
+  if (!overlay) {
+    return;
+  }
+
+  overlay.hidden = false;
+
+  document.body.classList.add(
+    "deal-submission-open"
+  );
+
+  setDealSubmissionFeedback({
+    hidden: true,
+  });
+
+  const firstField = overlay.querySelector(
+    'input[name="business_name"]'
+  );
+
+  window.requestAnimationFrame(() => {
+    firstField?.focus();
+  });
+};
+
+const closeDealSubmission = () => {
+  const overlay = document.querySelector(
+    SELECTORS.dealSubmissionOverlay
+  );
+
+  if (!overlay) {
+    return;
+  }
+
+  overlay.hidden = true;
+
+  document.body.classList.remove(
+    "deal-submission-open"
+  );
+
+  document
+    .querySelector(
+      SELECTORS.openDealSubmission
+    )
+    ?.focus();
+};
+
+const serializeDealSubmission = (form) => {
+  const formData = new FormData(form);
+
+  const payload = {
+    business_name:
+      formData.get("business_name"),
+    business_email:
+      formData.get("business_email"),
+    business_url:
+      formData.get("business_url"),
+    deal_url:
+      formData.get("deal_url"),
+    title: formData.get("title"),
+    category: formData.get("category"),
+    discount_text:
+      formData.get("discount_text"),
+    description:
+      formData.get("description"),
+    location_name:
+      formData.get("location_name"),
+    redemption_instructions:
+      formData.get(
+        "redemption_instructions"
+      ),
+    promo_code:
+      formData.get("promo_code"),
+    terms: formData.get("terms"),
+  };
+
+  const expirationValue =
+    formData.get("expires_at");
+
+  if (
+    typeof expirationValue === "string" &&
+    expirationValue.trim()
+  ) {
+    const expirationDate =
+      new Date(expirationValue);
+
+    if (
+      !Number.isNaN(
+        expirationDate.getTime()
+      )
+    ) {
+      payload.expires_at =
+        expirationDate.toISOString();
+    }
+  }
+
+  return payload;
+};
+
+const setDealSubmissionLoading = (
+  isLoading
+) => {
+  const submitButton = document.querySelector(
+    SELECTORS.dealSubmissionSubmit
+  );
+
+  const submitLabel = document.querySelector(
+    SELECTORS.dealSubmitLabel
+  );
+
+  if (submitButton) {
+    submitButton.disabled = isLoading;
+  }
+
+  if (submitLabel) {
+    submitLabel.textContent = isLoading
+      ? "Submitting..."
+      : "Submit for review";
+  }
+};
+
+const submitStudentDeal = async (form) => {
+  if (!form.reportValidity()) {
+    return;
+  }
+
+  setDealSubmissionLoading(true);
+
+  setDealSubmissionFeedback({
+    message: "Submitting your deal...",
+  });
+
+  try {
+    const response = await fetch(
+      STUDENT_DEALS_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          serializeDealSubmission(form)
+        ),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error?.message ||
+        "The deal could not be submitted."
+      );
+    }
+
+    setDealSubmissionFeedback({
+      message:
+        data.message ||
+        "Your deal was submitted for review.",
+    });
+
+    form.reset();
+
+    window.setTimeout(() => {
+      closeDealSubmission();
+    }, 1600);
+  } catch (error) {
+    setDealSubmissionFeedback({
+      message:
+        error instanceof Error
+          ? error.message
+          : "The deal could not be submitted.",
+      isError: true,
+    });
+  } finally {
+    setDealSubmissionLoading(false);
+  }
+};
+
+const initializeDealSubmission = () => {
+  const overlay = document.querySelector(
+    SELECTORS.dealSubmissionOverlay
+  );
+
+  const form = document.querySelector(
+    SELECTORS.dealSubmissionForm
+  );
+
+  if (!overlay || !form) {
+    return;
+  }
+
+  document
+    .querySelector(
+      SELECTORS.openDealSubmission
+    )
+    ?.addEventListener(
+      "click",
+      openDealSubmission
+    );
+
+  document
+    .querySelectorAll(
+      SELECTORS.closeDealSubmission
+    )
+    .forEach((button) => {
+      button.addEventListener(
+        "click",
+        closeDealSubmission
+      );
+    });
+
+  overlay.addEventListener(
+    "click",
+    (event) => {
+      if (event.target === overlay) {
+        closeDealSubmission();
+      }
+    }
+  );
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (
+        event.key === "Escape" &&
+        !overlay.hidden
+      ) {
+        closeDealSubmission();
+      }
+    }
+  );
+
+  form.addEventListener(
+    "submit",
+    (event) => {
+      event.preventDefault();
+
+      void submitStudentDeal(form);
+    }
+  );
+};
+
+const formatDealReviewDate = (value) => {
+  if (!value) {
+    return "Not provided";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unavailable";
+  }
+
+  return date.toLocaleString(
+    undefined,
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }
+  );
+};
+
+const setDealReviewCount = (count) => {
+  const countElement = document.querySelector(
+    SELECTORS.dealReviewCount
+  );
+
+  if (!countElement) {
+    return;
+  }
+
+  countElement.textContent = String(count);
+  countElement.hidden = count === 0;
+};
+
+const setDealReviewState = ({
+  title,
+  message,
+  hidden = false,
+  isError = false,
+  icon = "loader-circle",
+}) => {
+  const state = document.querySelector(
+    SELECTORS.dealReviewState
+  );
+
+  const titleElement = document.querySelector(
+    SELECTORS.dealReviewStateTitle
+  );
+
+  const messageElement = document.querySelector(
+    SELECTORS.dealReviewStateMessage
+  );
+
+  if (!state || !titleElement || !messageElement) {
+    return;
+  }
+
+  state.hidden = hidden;
+
+  state.classList.toggle(
+    "deal-review-state--error",
+    isError
+  );
+
+  titleElement.textContent = title;
+  messageElement.textContent = message;
+
+  const iconElement = state.querySelector(
+    "[data-lucide]"
+  );
+
+  if (iconElement) {
+    iconElement.setAttribute(
+      "data-lucide",
+      icon
+    );
+  }
+
+  hydrateDashboardIcons();
+};
+
+const createDealReviewDetail = ({
+  label,
+  value,
+  wide = false,
+  url = null,
+  linkLabel = "Open link",
+}) => {
+  const detail = document.createElement("div");
+
+  detail.className = "deal-review-detail";
+
+  if (wide) {
+    detail.classList.add(
+      "deal-review-detail--wide"
+    );
+  }
+
+  const labelElement =
+    document.createElement("span");
+
+  labelElement.className =
+    "deal-review-detail-label";
+
+  labelElement.textContent = label;
+
+  const valueElement =
+    document.createElement("div");
+
+  valueElement.className =
+    "deal-review-detail-value";
+
+  if (url) {
+    const link = createExternalDealLink({
+      url,
+      label: linkLabel,
+      className: "deal-review-link",
+    });
+
+    if (link) {
+      valueElement.append(link);
+    } else {
+      valueElement.textContent =
+        "Not provided";
+    }
+  } else {
+    valueElement.textContent =
+      value || "Not provided";
+  }
+
+  detail.append(
+    labelElement,
+    valueElement
+  );
+
+  return detail;
+};
+
+const moderateStudentDeal = async ({
+  dealId,
+  action,
+  card,
+}) => {
+  card.classList.add(
+    "deal-review-card--processing"
+  );
+
+  try {
+    const response = await fetch(
+      `${DEAL_MODERATION_ENDPOINT}/${dealId}/${action}`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error?.message ||
+        "The deal could not be reviewed."
+      );
+    }
+
+    card.remove();
+
+    const list = document.querySelector(
+      SELECTORS.dealReviewList
+    );
+
+    const remainingCount =
+      list?.children.length || 0;
+
+    setDealReviewCount(remainingCount);
+
+    if (remainingCount === 0) {
+      if (list) {
+        list.hidden = true;
+      }
+
+      setDealReviewState({
+        title: "No submissions awaiting review",
+        message:
+          "New business submissions will appear here.",
+        icon: "clipboard-check",
+      });
+    }
+
+    studentDealsLoaded = false;
+  } catch (error) {
+    card.classList.remove(
+      "deal-review-card--processing"
+    );
+
+    window.alert(
+      error instanceof Error
+        ? error.message
+        : "The deal could not be reviewed."
+    );
+  }
+};
+
+const createDealReviewCard = (deal) => {
+  const card = document.createElement("article");
+
+  card.className = "deal-review-card";
+
+  const header = document.createElement("header");
+
+  header.className =
+    "deal-review-card-header";
+
+  const heading =
+    document.createElement("div");
+
+  heading.className =
+    "deal-review-card-heading";
+
+  const title = document.createElement("h3");
+
+  title.textContent =
+    deal.title || "Untitled deal";
+
+  const business =
+    document.createElement("p");
+
+  business.className =
+    "deal-review-card-business";
+
+  business.textContent = [
+    deal.business_name,
+    deal.business_email,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  heading.append(title, business);
+
+  const discount =
+    document.createElement("div");
+
+  discount.className =
+    "deal-review-discount";
+
+  discount.textContent =
+    deal.discount_text || "Student offer";
+
+  header.append(heading, discount);
+
+  const details =
+    document.createElement("div");
+
+  details.className = "deal-review-details";
+
+  details.append(
+    createDealReviewDetail({
+      label: "Category",
+      value: formatStudentDealCategory(
+        deal.category
+      ),
+    }),
+    createDealReviewDetail({
+      label: "Location",
+      value: deal.location_name,
+    }),
+    createDealReviewDetail({
+      label: "Promo code",
+      value: deal.promo_code,
+    }),
+    createDealReviewDetail({
+      label: "Expiration",
+      value: formatDealReviewDate(
+        deal.expires_at
+      ),
+    }),
+    createDealReviewDetail({
+      label: "Business website or profile",
+      url: deal.business_url,
+      linkLabel: "Open business page",
+      wide: true,
+    }),
+    createDealReviewDetail({
+      label: "Deal or redemption page",
+      url: deal.deal_url,
+      linkLabel: "Open deal page",
+      wide: true,
+    }),
+    createDealReviewDetail({
+      label: "Description",
+      value: deal.description,
+      wide: true,
+    }),
+    createDealReviewDetail({
+      label: "Redemption instructions",
+      value: deal.redemption_instructions,
+      wide: true,
+    }),
+    createDealReviewDetail({
+      label: "Terms",
+      value: deal.terms,
+      wide: true,
+    }),
+    createDealReviewDetail({
+      label: "Submitted",
+      value: formatDealReviewDate(
+        deal.created_at
+      ),
+      wide: true,
+    })
+  );
+
+  const actions =
+    document.createElement("footer");
+
+  actions.className = "deal-review-actions";
+
+  const rejectButton =
+    document.createElement("button");
+
+  rejectButton.type = "button";
+  rejectButton.className =
+    "deal-review-reject";
+
+  rejectButton.innerHTML = `
+    <span
+      aria-hidden="true"
+      data-lucide="x"
+    ></span>
+    Reject
+  `;
+
+  const approveButton =
+    document.createElement("button");
+
+  approveButton.type = "button";
+  approveButton.className =
+    "deal-review-approve";
+
+  approveButton.innerHTML = `
+    <span
+      aria-hidden="true"
+      data-lucide="check"
+    ></span>
+    Approve
+  `;
+
+  rejectButton.addEventListener(
+    "click",
+    () => {
+      void moderateStudentDeal({
+        dealId: deal.id,
+        action: "reject",
+        card,
+      });
+    }
+  );
+
+  approveButton.addEventListener(
+    "click",
+    () => {
+      void moderateStudentDeal({
+        dealId: deal.id,
+        action: "approve",
+        card,
+      });
+    }
+  );
+
+  actions.append(
+    rejectButton,
+    approveButton
+  );
+
+  card.append(
+    header,
+    details,
+    actions
+  );
+
+  return card;
+};
+
+const loadPendingDealReviews = async () => {
+  const list = document.querySelector(
+    SELECTORS.dealReviewList
+  );
+
+  if (!list) {
+    return;
+  }
+
+  list.hidden = true;
+  list.replaceChildren();
+
+  setDealReviewState({
+    title: "Loading submissions",
+    message:
+      "Checking for deals awaiting review.",
+    icon: "loader-circle",
+  });
+
+  try {
+    const response = await fetch(
+      PENDING_DEALS_ENDPOINT,
+      {
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error?.message ||
+        "Pending deals could not be loaded."
+      );
+    }
+
+    const deals = Array.isArray(data.deals)
+      ? data.deals
+      : [];
+
+    setDealReviewCount(deals.length);
+
+    if (deals.length === 0) {
+      setDealReviewState({
+        title: "No submissions awaiting review",
+        message:
+          "New business submissions will appear here.",
+        icon: "clipboard-check",
+      });
+
+      return;
+    }
+
+    list.replaceChildren(
+      ...deals.map(createDealReviewCard)
+    );
+
+    list.hidden = false;
+
+    setDealReviewState({
+      title: "",
+      message: "",
+      hidden: true,
+    });
+
+    hydrateDashboardIcons();
+  } catch (error) {
+    setDealReviewState({
+      title: "Review queue unavailable",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Pending deals could not be loaded.",
+      isError: true,
+      icon: "circle-alert",
+    });
+  }
+};
+
+const openDealReview = () => {
+  const overlay = document.querySelector(
+    SELECTORS.dealReviewOverlay
+  );
+
+  if (!overlay) {
+    return;
+  }
+
+  overlay.hidden = false;
+
+  document.body.classList.add(
+    "deal-submission-open"
+  );
+
+  void loadPendingDealReviews();
+};
+
+const closeDealReview = () => {
+  const overlay = document.querySelector(
+    SELECTORS.dealReviewOverlay
+  );
+
+  if (!overlay) {
+    return;
+  }
+
+  overlay.hidden = true;
+
+  document.body.classList.remove(
+    "deal-submission-open"
+  );
+
+  document
+    .querySelector(
+      SELECTORS.openDealReview
+    )
+    ?.focus();
+};
+
+const initializeDealReview = () => {
+  const overlay = document.querySelector(
+    SELECTORS.dealReviewOverlay
+  );
+
+  if (!overlay) {
+    return;
+  }
+
+  document
+    .querySelector(
+      SELECTORS.openDealReview
+    )
+    ?.addEventListener(
+      "click",
+      openDealReview
+    );
+
+  document
+    .querySelector(
+      SELECTORS.closeDealReview
+    )
+    ?.addEventListener(
+      "click",
+      closeDealReview
+    );
+
+  overlay.addEventListener(
+    "click",
+    (event) => {
+      if (event.target === overlay) {
+        closeDealReview();
+      }
+    }
+  );
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (
+        event.key === "Escape" &&
+        !overlay.hidden
+      ) {
+        closeDealReview();
+      }
+    }
+  );
+
+  void loadPendingDealReviews();
+};
+
+const initializeStudentDeals = () => {
+  const dealsView = document.querySelector(
+    SELECTORS.studentDealsView
+  );
+
+  if (!dealsView) {
+    return;
+  }
+
+  document
+    .querySelector(
+      SELECTORS.studentDealsSearch
+    )
+    ?.addEventListener(
+      "input",
+      renderStudentDeals
+    );
+
+  document
+    .querySelectorAll(
+      SELECTORS.studentDealFilter
+    )
+    .forEach((filterButton) => {
+      filterButton.addEventListener(
+        "click",
+        () => {
+          activeStudentDealFilter =
+            filterButton.dataset
+              .studentDealFilter || "all";
+
+          document
+            .querySelectorAll(
+              SELECTORS.studentDealFilter
+            )
+            .forEach((button) => {
+              const isActive =
+                button === filterButton;
+
+              button.classList.toggle(
+                "student-deal-filter--active",
+                isActive
+              );
+
+              button.setAttribute(
+                "aria-pressed",
+                String(isActive)
+              );
+            });
+
+          renderStudentDeals();
+        }
+      );
+    });
+};
+
 const setDashboardView = (viewName) => {
   const supportedViews = new Set([
     "explore",
     "saved",
     "categories",
+    "deals",
   ]);
 
   activeDashboardView = supportedViews.has(viewName)
@@ -2249,6 +3693,20 @@ const setDashboardView = (viewName) => {
 
   if (activeDashboardView === "categories") {
     void renderDiscoveryHub();
+  }
+
+  if (activeDashboardView === "deals") {
+    const locationLabel =
+      document.querySelector(
+        SELECTORS.studentDealsLocation
+      );
+
+    if (locationLabel) {
+      locationLabel.textContent =
+        selectedLocation.label;
+    }
+
+    void loadStudentDeals();
   }
 
   hydrateDashboardIcons();
@@ -4900,6 +6358,9 @@ const initializeDashboard = () => {
   initializeSavedPlaces();
   initializeDashboardNavigation();
   initializeDiscoveryHub();
+  initializeStudentDeals();
+  initializeDealSubmission();
+  initializeDealReview();
   initializeInspectorTabs();
   initializeInspectorResults();
   activateInspectorTab("map");

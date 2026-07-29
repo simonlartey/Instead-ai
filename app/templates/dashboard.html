@@ -27,6 +27,11 @@
 </head>
 
 <body>
+  {% set is_deal_admin =
+    current_user.email.lower()
+    in config.get("ADMIN_EMAILS", [])
+  %}
+
   <div
     id="dashboard-shell"
     class="dashboard-shell"
@@ -132,9 +137,10 @@
         </a>
 
         <a
-          href="#"
+          href="#student-deals"
           class="sidebar-link nav-link"
           aria-label="Student Deals"
+          data-dashboard-navigation="deals"
         >
           <span
             aria-hidden="true"
@@ -682,6 +688,569 @@
             hidden
           ></section>
         </div>
+      </section>
+
+      <section
+        id="student-deals"
+        class="student-deals-view"
+        data-dashboard-view="deals"
+        aria-labelledby="student-deals-title"
+        hidden
+      >
+        <div class="student-deals-content">
+          <header class="student-deals-hero">
+            <div>
+              <span class="student-deals-eyebrow">
+                Local student savings
+              </span>
+
+              <h1 id="student-deals-title">
+                Student Deals
+              </h1>
+
+              <p>
+                Discover verified discounts submitted by local
+                businesses and approved by Instead.
+              </p>
+            </div>
+
+            <div class="student-deals-hero-actions">
+              <div class="student-deals-location">
+                <span
+                  aria-hidden="true"
+                  data-lucide="map-pin"
+                ></span>
+
+                <span data-student-deals-location>
+                  Portland, ME
+                </span>
+              </div>
+
+              {% if is_deal_admin %}
+                <button
+                  type="button"
+                  class="student-deals-review-button"
+                  data-open-deal-review
+                >
+                  <span
+                    aria-hidden="true"
+                    data-lucide="clipboard-check"
+                  ></span>
+
+                  Review submissions
+
+                  <span
+                    class="student-deals-review-count"
+                    data-deal-review-count
+                    hidden
+                  >
+                    0
+                  </span>
+                </button>
+              {% endif %}
+
+              <button
+                type="button"
+                class="student-deals-submit-button"
+                data-open-deal-submission
+              >
+                <span
+                  aria-hidden="true"
+                  data-lucide="plus"
+                ></span>
+
+                Submit a deal
+              </button>
+            </div>
+          </header>
+
+          <section
+            class="student-deals-summary"
+            aria-label="Student deals summary"
+          >
+            <div>
+              <span
+                class="student-deals-summary-icon"
+                aria-hidden="true"
+                data-lucide="badge-check"
+              ></span>
+
+              <div>
+                <strong>Approved local offers</strong>
+
+                <span>
+                  Every visible offer has been reviewed before
+                  appearing here.
+                </span>
+              </div>
+            </div>
+
+            <span
+              class="student-deals-count"
+              data-student-deals-count
+            >
+              0 deals
+            </span>
+          </section>
+
+          <div
+            class="student-deals-toolbar"
+            role="toolbar"
+            aria-label="Filter student deals"
+          >
+            <label class="student-deals-search">
+              <span
+                aria-hidden="true"
+                data-lucide="search"
+              ></span>
+
+              <span class="sr-only">
+                Search student deals
+              </span>
+
+              <input
+                type="search"
+                placeholder="Search deals or businesses"
+                autocomplete="off"
+                data-student-deals-search
+              />
+            </label>
+
+            <div
+              class="student-deals-filters"
+              data-student-deals-filters
+            >
+              <button
+                type="button"
+                class="student-deal-filter student-deal-filter--active"
+                data-student-deal-filter="all"
+                aria-pressed="true"
+              >
+                All
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="food"
+                aria-pressed="false"
+              >
+                Food
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="coffee"
+                aria-pressed="false"
+              >
+                Coffee
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="shopping"
+                aria-pressed="false"
+              >
+                Shopping
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="services"
+                aria-pressed="false"
+              >
+                Services
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="entertainment"
+                aria-pressed="false"
+              >
+                Entertainment
+              </button>
+
+              <button
+                type="button"
+                class="student-deal-filter"
+                data-student-deal-filter="wellness"
+                aria-pressed="false"
+              >
+                Wellness
+              </button>
+            </div>
+          </div>
+
+          <section
+            class="student-deals-state"
+            data-student-deals-state
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              class="student-deals-state-icon"
+              aria-hidden="true"
+              data-lucide="loader-circle"
+            ></span>
+
+            <div>
+              <h2 data-student-deals-state-title>
+                Loading student deals
+              </h2>
+
+              <p data-student-deals-state-message>
+                Checking for approved offers near you.
+              </p>
+            </div>
+          </section>
+
+          <section
+            class="student-deals-grid"
+            data-student-deals-grid
+            aria-label="Available student deals"
+            hidden
+          ></section>
+        </div>
+
+          <div
+            class="deal-submission-overlay"
+            data-deal-submission-overlay
+            hidden
+          >
+            <section
+              class="deal-submission-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="deal-submission-title"
+            >
+              <header class="deal-submission-header">
+                <div>
+                  <span class="student-deals-eyebrow">
+                    For local businesses
+                  </span>
+
+                  <h2 id="deal-submission-title">
+                    Submit a student deal
+                  </h2>
+
+                  <p>
+                    Share an offer with local students. Every
+                    submission is reviewed before it appears
+                    publicly.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  class="deal-submission-close"
+                  aria-label="Close deal submission form"
+                  data-close-deal-submission
+                >
+                  <span
+                    aria-hidden="true"
+                    data-lucide="x"
+                  ></span>
+                </button>
+              </header>
+
+              <form
+                class="deal-submission-form"
+                data-deal-submission-form
+                novalidate
+              >
+                <div class="deal-submission-grid">
+                  <label class="deal-form-field">
+                    <span>Business name</span>
+
+                    <input
+                      type="text"
+                      name="business_name"
+                      maxlength="120"
+                      autocomplete="organization"
+                      required
+                    />
+                  </label>
+
+                  <label class="deal-form-field">
+                    <span>Business email</span>
+
+                    <input
+                      type="email"
+                      name="business_email"
+                      maxlength="255"
+                      autocomplete="email"
+                      required
+                    />
+                  </label>
+
+                  <label class="deal-form-field">
+                    <span>
+                      Business website or social profile
+                    </span>
+
+                    <input
+                      type="url"
+                      name="business_url"
+                      maxlength="500"
+                      placeholder="https://example.com"
+                      autocomplete="url"
+                    />
+
+                    <small class="deal-form-hint">
+                      Optional. Add an official website,
+                      Instagram, or Facebook page so we can
+                      verify the business.
+                    </small>
+                  </label>
+
+                  <label class="deal-form-field">
+                    <span>Deal or redemption link</span>
+
+                    <input
+                      type="url"
+                      name="deal_url"
+                      maxlength="500"
+                      placeholder="https://example.com/student-deal"
+                      autocomplete="url"
+                    />
+
+                    <small class="deal-form-hint">
+                      Optional. Add the page where students
+                      can view or redeem this specific offer.
+                    </small>
+                  </label>
+
+                  <label class="deal-form-field deal-form-field--wide">
+                    <span>Deal title</span>
+
+                    <input
+                      type="text"
+                      name="title"
+                      maxlength="140"
+                      placeholder="Example: 15% off student drinks"
+                      required
+                    />
+                  </label>
+
+                  <label class="deal-form-field">
+                    <span>Category</span>
+
+                    <select name="category" required>
+                      <option value="">
+                        Select a category
+                      </option>
+                      <option value="food">Food</option>
+                      <option value="coffee">Coffee</option>
+                      <option value="shopping">
+                        Shopping
+                      </option>
+                      <option value="services">
+                        Services
+                      </option>
+                      <option value="entertainment">
+                        Entertainment
+                      </option>
+                      <option value="wellness">
+                        Wellness
+                      </option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
+
+                  <label class="deal-form-field">
+                    <span>Discount</span>
+
+                    <input
+                      type="text"
+                      name="discount_text"
+                      maxlength="80"
+                      placeholder="Example: 15% off"
+                      required
+                    />
+                  </label>
+
+                  <label class="deal-form-field deal-form-field--wide">
+                    <span>Description</span>
+
+                    <textarea
+                      name="description"
+                      maxlength="2000"
+                      rows="4"
+                      placeholder="Describe what students receive."
+                      required
+                    ></textarea>
+                  </label>
+
+                  <label class="deal-form-field deal-form-field--wide">
+                    <span>Location</span>
+
+                    <input
+                      type="text"
+                      name="location_name"
+                      maxlength="160"
+                      placeholder="Business address or service area"
+                      autocomplete="street-address"
+                      required
+                    />
+                  </label>
+
+                  <label class="deal-form-field deal-form-field--wide">
+                    <span>How students redeem it</span>
+
+                    <textarea
+                      name="redemption_instructions"
+                      maxlength="2000"
+                      rows="3"
+                      placeholder="Example: Show a valid student ID before payment."
+                      required
+                    ></textarea>
+                  </label>
+
+                  <label class="deal-form-field">
+                    <span>Promo code</span>
+
+                    <input
+                      type="text"
+                      name="promo_code"
+                      maxlength="80"
+                      placeholder="Optional"
+                    />
+                  </label>
+
+                  <label class="deal-form-field">
+                    <span>Expiration date</span>
+
+                    <input
+                      type="datetime-local"
+                      name="expires_at"
+                    />
+                  </label>
+
+                  <label class="deal-form-field deal-form-field--wide">
+                    <span>Terms and restrictions</span>
+
+                    <textarea
+                      name="terms"
+                      maxlength="2000"
+                      rows="3"
+                      placeholder="Optional restrictions, exclusions, or purchase requirements."
+                    ></textarea>
+                  </label>
+                </div>
+
+                <div
+                  class="deal-submission-feedback"
+                  data-deal-submission-feedback
+                  role="status"
+                  aria-live="polite"
+                  hidden
+                ></div>
+
+                <footer class="deal-submission-actions">
+                  <button
+                    type="button"
+                    class="deal-submission-cancel"
+                    data-close-deal-submission
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    class="deal-submission-primary"
+                    data-deal-submission-submit
+                  >
+                    <span
+                      aria-hidden="true"
+                      data-lucide="send"
+                    ></span>
+
+                    <span data-deal-submit-label>
+                      Submit for review
+                    </span>
+                  </button>
+                </footer>
+              </form>
+            </section>
+          </div>
+
+          {% if is_deal_admin %}
+            <div
+              class="deal-review-overlay"
+              data-deal-review-overlay
+              hidden
+            >
+              <section
+                class="deal-review-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="deal-review-title"
+              >
+                <header class="deal-review-header">
+                  <div>
+                    <span class="student-deals-eyebrow">
+                      Instead administration
+                    </span>
+
+                    <h2 id="deal-review-title">
+                      Review deal submissions
+                    </h2>
+
+                    <p>
+                      Approve offers that are accurate and suitable
+                      for students, or reject submissions that should
+                      not appear publicly.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="deal-review-close"
+                    aria-label="Close deal review"
+                    data-close-deal-review
+                  >
+                    <span
+                      aria-hidden="true"
+                      data-lucide="x"
+                    ></span>
+                  </button>
+                </header>
+
+                <div
+                  class="deal-review-state"
+                  data-deal-review-state
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span
+                    class="deal-review-state-icon"
+                    aria-hidden="true"
+                    data-lucide="loader-circle"
+                  ></span>
+
+                  <div>
+                    <h3 data-deal-review-state-title>
+                      Loading submissions
+                    </h3>
+
+                    <p data-deal-review-state-message>
+                      Checking for deals awaiting review.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  class="deal-review-list"
+                  data-deal-review-list
+                  hidden
+                ></div>
+              </section>
+            </div>
+          {% endif %}
       </section>
 
       <footer
