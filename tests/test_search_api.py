@@ -1,7 +1,16 @@
 from unittest.mock import Mock
 from uuid import UUID
 
+from app.models.conversation_action import (
+    ConversationAction,
+)
+from app.models.conversation_decision import (
+    ConversationDecision,
+)
 from app.models.conversation_message import MessageRole
+from app.models.search_filter_updates import (
+    SearchFilterUpdates,
+)
 from app.models.search_intent import SearchIntent
 from app.providers.places.errors import PlacesProviderError
 
@@ -718,6 +727,17 @@ def test_continue_search_returns_response(
 
     session_id = search_response.get_json()["search_id"]
 
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.ANSWER_EXISTING,
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
     response = client.post(
         f"/api/v1/search/{session_id}/continue",
         json={
@@ -730,6 +750,7 @@ def test_continue_search_returns_response(
     data = response.get_json()
 
     assert data["session_id"] == session_id
+    assert data["action"] == "answer_existing"
     assert data["response"].startswith(
         "You asked: Which one is cheaper?. "
     )
@@ -744,6 +765,756 @@ def test_continue_search_returns_response(
     session = repository.get(session_id)
     assert session is not None
     assert len(session.conversation_history) == 4
+
+    conversation_orchestrator.decide.assert_called_once()
+
+    decision_call = (
+        conversation_orchestrator.decide.call_args.kwargs
+    )
+
+    assert decision_call["session"].session_id == session_id
+    assert decision_call["message"] == (
+        "Which one is cheaper?"
+    )
+
+
+def test_continue_search_returns_clarification_question(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.CLARIFY,
+            clarification_question=(
+                "What would you like to improve: "
+                "price, distance, rating, or atmosphere?"
+            ),
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    assistant_provider = app.extensions[
+        "assistant_provider"
+    ]
+    assistant_provider.continue_conversation = Mock()
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Show me something better",
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.get_json() == {
+        "session_id": session_id,
+        "action": "clarify",
+        "response": (
+            "What would you like to improve: "
+            "price, distance, rating, or atmosphere?"
+        ),
+    }
+
+    assistant_provider.continue_conversation.assert_not_called()
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    session = repository.get(session_id)
+
+    assert session is not None
+    assert len(session.conversation_history) == 4
+
+    assert (
+        session.conversation_history[-2].content
+        == "Show me something better"
+    )
+
+    assert session.conversation_history[-1].content == (
+        "What would you like to improve: "
+        "price, distance, rating, or atmosphere?"
+    )
+
+
+def test_continue_search_handles_decision_failure(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.side_effect = (
+        RuntimeError("Decision failed.")
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Show me something better",
+        },
+    )
+
+    assert response.status_code == 503
+
+    assert response.get_json() == {
+        "error": {
+            "code": "conversation_decision_unavailable",
+            "message": (
+                "The search assistant could not interpret "
+                "that follow-up message."
+            ),
+        }
+    }
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    session = repository.get(session_id)
+
+    assert session is not None
+    assert len(session.conversation_history) == 2
+
+
+def test_continue_search_refines_existing_results(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Barber",
+            "location": {
+                "latitude": 43.6591,
+                "longitude": -70.2568,
+            },
+            "filters": {
+                "minimum_rating": 4.0,
+            },
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    original_session = repository.get(session_id)
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.REFINE_RESULTS,
+            filter_updates=SearchFilterUpdates(
+                price_levels=(1,),
+                open_now=True,
+                minimum_rating=4.5,
+            ),
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": (
+                "Only show affordable places that are "
+                "open now and rated at least 4.5"
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+
+    assert data["session_id"] == session_id
+    assert data["action"] == "refine_results"
+    assert data["query"] == "Barber"
+    assert data["result_count"] == len(
+        data["results"]
+    )
+    assert data["response"]
+    assert data["filters"] == {
+        "price_levels": [1],
+        "open_now": True,
+        "minimum_rating": 4.5,
+        "max_distance_meters": None,
+    }
+
+    updated_session = repository.get(session_id)
+
+    assert updated_session is original_session
+    assert updated_session.original_query == "Barber"
+
+    assert updated_session.filters.price_levels == (
+        1,
+    )
+    assert updated_session.filters.open_now is True
+    assert updated_session.filters.minimum_rating == (
+        4.5
+    )
+
+    assert updated_session.location.latitude == (
+        43.6591
+    )
+    assert updated_session.location.longitude == (
+        -70.2568
+    )
+
+    assert len(
+        updated_session.conversation_history
+    ) == 4
+
+    assert (
+        updated_session.conversation_history[-2].content
+        == (
+            "Only show affordable places that are "
+            "open now and rated at least 4.5"
+        )
+    )
+
+    assert (
+        updated_session.conversation_history[-1].content
+        == data["response"]
+    )
+
+
+def test_continue_search_handles_refinement_provider_failure(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+            "filters": {
+                "open_now": True,
+            },
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.REFINE_RESULTS,
+            filter_updates=SearchFilterUpdates(
+                minimum_rating=4.5,
+            ),
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    places_provider = app.extensions[
+        "places_provider"
+    ]
+    places_provider.search = Mock(
+        side_effect=PlacesProviderError(
+            "Provider unavailable"
+        )
+    )
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Only show highly rated ones",
+        },
+    )
+
+    assert response.status_code == 503
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    session = repository.get(session_id)
+
+    assert session is not None
+    assert session.original_query == (
+        "Find quiet cafes"
+    )
+    assert session.filters.open_now is True
+    assert session.filters.minimum_rating is None
+    assert len(session.conversation_history) == 2
+
+
+def test_continue_search_runs_new_search_in_existing_session(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+            "location": {
+                "latitude": 43.6591,
+                "longitude": -70.2568,
+            },
+            "filters": {
+                "open_now": True,
+            },
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    original_session = repository.get(session_id)
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.RUN_NEW_SEARCH,
+            rewritten_query="barber near campus",
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Find a barber instead",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+
+    assert data["session_id"] == session_id
+    assert data["action"] == "run_new_search"
+    assert data["query"] == "barber near campus"
+    assert data["result_count"] == len(
+        data["results"]
+    )
+    assert data["response"]
+    assert data["filters"] == {
+        "price_levels": [],
+        "open_now": True,
+        "minimum_rating": None,
+        "max_distance_meters": None,
+    }
+
+    updated_session = repository.get(session_id)
+
+    assert updated_session is original_session
+    assert updated_session.session_id == session_id
+    assert updated_session.original_query == (
+        "barber near campus"
+    )
+    assert updated_session.intent.original_query == (
+        "barber near campus"
+    )
+
+    assert updated_session.location.latitude == (
+        43.6591
+    )
+    assert updated_session.location.longitude == (
+        -70.2568
+    )
+    assert updated_session.filters.open_now is True
+
+    assert len(
+        updated_session.conversation_history
+    ) == 4
+
+    assert (
+        updated_session.conversation_history[-2].content
+        == "Find a barber instead"
+    )
+
+    assert (
+        updated_session.conversation_history[-1].content
+        == data["response"]
+    )
+
+
+def test_search_session_supports_multi_step_conversation_flow(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+            "location": {
+                "latitude": 43.6591,
+                "longitude": -70.2568,
+            },
+            "filters": {
+                "open_now": True,
+            },
+        },
+    )
+
+    assert initial_response.status_code == 200
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    original_session = repository.get(session_id)
+
+    assert original_session is not None
+    assert original_session.original_query == (
+        "Find quiet cafes"
+    )
+    assert original_session.filters.open_now is True
+    assert len(
+        original_session.conversation_history
+    ) == 2
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.side_effect = [
+        ConversationDecision(
+            action=ConversationAction.ANSWER_EXISTING,
+        ),
+        ConversationDecision(
+            action=ConversationAction.REFINE_RESULTS,
+            filter_updates=SearchFilterUpdates(
+                price_levels=(1, 2),
+                minimum_rating=4.5,
+            ),
+        ),
+        ConversationDecision(
+            action=ConversationAction.RUN_NEW_SEARCH,
+            rewritten_query="barber near campus",
+        ),
+    ]
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    answer_response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Which one has the best rating?",
+        },
+    )
+
+    assert answer_response.status_code == 200
+
+    answer_data = answer_response.get_json()
+
+    assert answer_data["session_id"] == session_id
+    assert answer_data["action"] == "answer_existing"
+    assert answer_data["response"]
+
+    session_after_answer = repository.get(session_id)
+
+    assert session_after_answer is original_session
+    assert session_after_answer.original_query == (
+        "Find quiet cafes"
+    )
+    assert session_after_answer.filters.open_now is True
+    assert len(
+        session_after_answer.conversation_history
+    ) == 4
+
+    initial_places = list(
+        session_after_answer.ranked_places
+    )
+
+    places_provider = app.extensions[
+        "places_provider"
+    ]
+    original_places_search = places_provider.search
+
+    def search_for_conversation(
+        query,
+        latitude=None,
+        longitude=None,
+    ):
+        if query == "barber near campus":
+            return [
+                {
+                    "id": "campus-barber",
+                    "name": "Campus Barber",
+                    "category": "Barber shop",
+                    "rating": 4.9,
+                    "review_count": 180,
+                    "distance_miles": 0.3,
+                    "price_level": 1,
+                    "open_now": True,
+                }
+            ]
+
+        return original_places_search(
+            query=query,
+            latitude=latitude,
+            longitude=longitude,
+        )
+
+    places_provider.search = Mock(
+        side_effect=search_for_conversation
+    )
+
+    refine_response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": (
+                "Only show affordable options rated "
+                "at least 4.5"
+            ),
+        },
+    )
+
+    assert refine_response.status_code == 200
+
+    refine_data = refine_response.get_json()
+
+    assert refine_data["session_id"] == session_id
+    assert refine_data["action"] == "refine_results"
+    assert refine_data["query"] == "Find quiet cafes"
+    assert refine_data["result_count"] == len(
+        refine_data["results"]
+    )
+    assert refine_data["filters"] == {
+        "price_levels": [1, 2],
+        "open_now": True,
+        "minimum_rating": 4.5,
+        "max_distance_meters": None,
+    }
+    assert refine_data["filter_status"]["mode"] in {
+        "exact",
+        "fallback",
+        "empty",
+    }
+
+    session_after_refinement = repository.get(
+        session_id
+    )
+
+    assert session_after_refinement is original_session
+    assert session_after_refinement.original_query == (
+        "Find quiet cafes"
+    )
+    assert (
+        session_after_refinement.intent.original_query
+        == "Find quiet cafes"
+    )
+    assert (
+        session_after_refinement.filters.price_levels
+        == (1, 2)
+    )
+    assert (
+        session_after_refinement.filters.open_now
+        is True
+    )
+    assert (
+        session_after_refinement.filters.minimum_rating
+        == 4.5
+    )
+    assert len(
+        session_after_refinement.conversation_history
+    ) == 6
+
+    new_search_response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Find a barber instead",
+        },
+    )
+
+    assert new_search_response.status_code == 200
+
+    new_search_data = new_search_response.get_json()
+
+    assert new_search_data["session_id"] == session_id
+    assert new_search_data["action"] == "run_new_search"
+    assert new_search_data["query"] == (
+        "barber near campus"
+    )
+    assert new_search_data["result_count"] == len(
+        new_search_data["results"]
+    )
+    assert new_search_data["filters"] == {
+        "price_levels": [1, 2],
+        "open_now": True,
+        "minimum_rating": 4.5,
+        "max_distance_meters": None,
+    }
+    assert new_search_data["filter_status"]["mode"] in {
+        "exact",
+        "fallback",
+        "empty",
+    }
+
+    final_session = repository.get(session_id)
+
+    assert final_session is original_session
+    assert final_session.session_id == session_id
+    assert final_session.original_query == (
+        "barber near campus"
+    )
+    assert final_session.intent.original_query == (
+        "barber near campus"
+    )
+
+    assert final_session.location.latitude == (
+        43.6591
+    )
+    assert final_session.location.longitude == (
+        -70.2568
+    )
+
+    assert final_session.filters.price_levels == (
+        1,
+        2,
+    )
+    assert final_session.filters.open_now is True
+    assert final_session.filters.minimum_rating == (
+        4.5
+    )
+
+    assert len(
+        final_session.conversation_history
+    ) == 8
+
+    assert [
+        message.content
+        for message in (
+            final_session.conversation_history[-6:]
+        )
+        if message.role is MessageRole.USER
+    ] == [
+        "Which one has the best rating?",
+        (
+            "Only show affordable options rated "
+            "at least 4.5"
+        ),
+        "Find a barber instead",
+    ]
+
+    assert final_session.ranked_places == (
+        new_search_data["results"]
+    )
+    assert final_session.ranked_places != (
+        initial_places
+    )
+
+    assert (
+        conversation_orchestrator.decide.call_count
+        == 3
+    )
+
+
+def test_continue_search_handles_new_search_provider_failure(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.RUN_NEW_SEARCH,
+            rewritten_query="barber near campus",
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    places_provider = app.extensions[
+        "places_provider"
+    ]
+    places_provider.search = Mock(
+        side_effect=PlacesProviderError(
+            "Provider unavailable"
+        )
+    )
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Find a barber instead",
+        },
+    )
+
+    assert response.status_code == 503
+
+    assert response.get_json()["error"]["code"] == (
+        "places_provider_unavailable"
+    )
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    session = repository.get(session_id)
+
+    assert session is not None
+    assert session.original_query == (
+        "Find quiet cafes"
+    )
+    assert len(session.conversation_history) == 2
 
 
 def test_continue_search_requires_message(

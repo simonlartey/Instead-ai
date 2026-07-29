@@ -131,6 +131,64 @@ class RecordingPlaceFilter:
         )
 
 
+def test_execute_returns_pipeline_result_without_session():
+    places_provider = RecordingPlacesProvider()
+    assistant_provider = RecordingAssistantProvider()
+    conversation_manager = RecordingConversationManager()
+    place_filter = RecordingPlaceFilter()
+
+    service = SearchService(
+        places_provider=places_provider,
+        assistant_provider=assistant_provider,
+        conversation_manager=conversation_manager,
+        place_filter=place_filter,
+    )
+
+    search_request = SearchRequest(
+        query="Find somewhere quiet to study",
+        location=SearchLocation(
+            latitude=43.6591,
+            longitude=-70.2568,
+        ),
+        filters=SearchFilters(
+            open_now=True,
+        ),
+    )
+
+    result = service.execute(search_request)
+
+    assert result.intent.search_query == "quiet cafe"
+    assert result.places == [
+        {
+            "id": "test-place",
+            "name": "Test Place",
+        }
+    ]
+    assert result.ranked_places == [
+        {
+            "id": "test-place",
+            "name": "Test Place",
+        }
+    ]
+    assert result.assistant_response == (
+        "Campus Cafe is the strongest match."
+    )
+    assert result.filter_mode == "exact"
+
+    assert place_filter.received_places == [
+        {
+            "id": "test-place",
+            "name": "Test Place",
+        }
+    ]
+
+    assert place_filter.received_filters == (
+        search_request.filters
+    )
+
+    assert conversation_manager.arguments is None
+
+
 def test_search_service_returns_expected_response():
     provider = RecordingPlacesProvider()
     service = SearchService(provider)
@@ -488,11 +546,21 @@ def test_search_service_creates_conversation_session():
         conversation_manager=conversation_manager,
     )
 
-    response = service.search(
-        SearchRequest(
-            query="Find somewhere quiet to study"
-        )
+    search_request = SearchRequest(
+        query="Find somewhere quiet to study",
+        location=SearchLocation(
+            latitude=43.6591,
+            longitude=-70.2568,
+        ),
+        filters=SearchFilters(
+            price_levels=(1, 2),
+            open_now=True,
+            minimum_rating=4.0,
+            max_distance_meters=3200,
+        ),
     )
+
+    response = service.search(search_request)
 
     assert response["search_id"] == "session-123"
 
@@ -504,6 +572,16 @@ def test_search_service_creates_conversation_session():
     assert (
         conversation_manager.arguments["assistant_response"]
         == "Campus Cafe is the strongest match."
+    )
+
+    assert (
+        conversation_manager.arguments["location"]
+        == search_request.location
+    )
+
+    assert (
+        conversation_manager.arguments["filters"]
+        == search_request.filters
     )
 
 

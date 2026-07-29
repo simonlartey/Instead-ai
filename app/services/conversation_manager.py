@@ -4,6 +4,10 @@ from app.models.conversation_message import MessageRole
 from app.models.search_intent import SearchIntent
 from app.models.search_session import SearchSession
 from app.repositories.search_session import SearchSessionRepository
+from app.schemas.search import (
+    SearchFilters,
+    SearchLocation,
+)
 
 
 class ConversationManager:
@@ -21,11 +25,15 @@ class ConversationManager:
         intent: SearchIntent,
         places: list[dict[str, Any]],
         ranked_places: list[dict[str, Any]],
+        location: SearchLocation | None = None,
+        filters: SearchFilters | None = None,
         assistant_response: str | None = None,
     ) -> SearchSession:
         session = SearchSession(
             original_query=original_query,
             intent=intent,
+            location=location,
+            filters=filters or SearchFilters(),
             places=places,
             ranked_places=ranked_places,
         )
@@ -61,6 +69,46 @@ class ConversationManager:
 
         if session is None:
             return None
+
+        session.add_message(
+            role=MessageRole.USER,
+            content=user_message,
+        )
+
+        session.add_message(
+            role=MessageRole.ASSISTANT,
+            content=assistant_response,
+        )
+
+        self.session_repository.save(session)
+
+        return session
+
+    def replace_search_state(
+        self,
+        session_id: str,
+        original_query: str,
+        intent: SearchIntent,
+        places: list[dict[str, Any]],
+        ranked_places: list[dict[str, Any]],
+        user_message: str,
+        assistant_response: str,
+        filters: SearchFilters | None = None,
+    ) -> SearchSession | None:
+        """Replace search results while preserving the conversation session."""
+
+        session = self.get_session(session_id)
+
+        if session is None:
+            return None
+
+        session.original_query = original_query
+        session.intent = intent
+        session.places = places
+        session.ranked_places = ranked_places
+
+        if filters is not None:
+            session.filters = filters
 
         session.add_message(
             role=MessageRole.USER,

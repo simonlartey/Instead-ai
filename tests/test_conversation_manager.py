@@ -6,6 +6,10 @@ from app.models.search_intent import SearchIntent
 from app.repositories.in_memory_search_session import (
     InMemorySearchSessionRepository,
 )
+from app.schemas.search import (
+    SearchFilters,
+    SearchLocation,
+)
 from app.services.conversation_manager import ConversationManager
 
 
@@ -21,6 +25,16 @@ def create_intent() -> SearchIntent:
 def test_start_session_stores_search_state():
     repository = InMemorySearchSessionRepository()
     manager = ConversationManager(repository)
+
+    location = SearchLocation(
+        latitude=43.6591,
+        longitude=-70.2568,
+    )
+
+    filters = SearchFilters(
+        price_levels=(1,),
+        open_now=True,
+    )
 
     places = [
         {
@@ -39,12 +53,16 @@ def test_start_session_stores_search_state():
     session = manager.start_session(
         original_query="Find a quiet cafe",
         intent=create_intent(),
+        location=location,
+        filters=filters,
         places=places,
         ranked_places=ranked_places,
     )
 
     assert session.original_query == "Find a quiet cafe"
     assert session.intent == create_intent()
+    assert session.location == location
+    assert session.filters == filters
     assert session.places == places
     assert session.ranked_places == ranked_places
     assert repository.get(session.session_id) is session
@@ -208,6 +226,145 @@ def test_continue_session_adds_messages():
         MessageRole.USER,
         MessageRole.ASSISTANT,
     ]
+
+
+def test_replace_search_state_updates_existing_session():
+    repository = InMemorySearchSessionRepository()
+    manager = ConversationManager(repository)
+
+    session = manager.start_session(
+        original_query="Find a quiet cafe",
+        intent=create_intent(),
+        places=[
+            {
+                "id": "cafe-1",
+                "name": "Campus Cafe",
+            }
+        ],
+        ranked_places=[
+            {
+                "id": "cafe-1",
+                "name": "Campus Cafe",
+            }
+        ],
+        assistant_response=(
+            "Campus Cafe is a strong option."
+        ),
+    )
+
+    new_intent = SearchIntent(
+        original_query="Find a barber instead",
+        search_query="barber",
+        category="barber",
+    )
+
+    updated_filters = SearchFilters(
+        price_levels=(1, 2),
+        open_now=True,
+        minimum_rating=4.5,
+    )
+
+    updated_session = manager.replace_search_state(
+        session_id=session.session_id,
+        original_query="Find a barber instead",
+        intent=new_intent,
+        places=[
+            {
+                "id": "barber-1",
+                "name": "Campus Cuts",
+            }
+        ],
+        ranked_places=[
+            {
+                "id": "barber-1",
+                "name": "Campus Cuts",
+            }
+        ],
+        user_message="Find a barber instead",
+        assistant_response=(
+            "Campus Cuts is the strongest match."
+        ),
+        filters=updated_filters,
+    )
+
+    assert updated_session is session
+    assert session.original_query == (
+        "Find a barber instead"
+    )
+    assert session.intent == new_intent
+    assert session.places == [
+        {
+            "id": "barber-1",
+            "name": "Campus Cuts",
+        }
+    ]
+    assert session.ranked_places == [
+        {
+            "id": "barber-1",
+            "name": "Campus Cuts",
+        }
+    ]
+    assert session.filters == updated_filters
+
+    assert len(session.conversation_history) == 4
+    assert session.conversation_history[-2].content == (
+        "Find a barber instead"
+    )
+    assert session.conversation_history[-1].content == (
+        "Campus Cuts is the strongest match."
+    )
+
+    assert repository.get(session.session_id) is session
+
+
+def test_replace_search_state_preserves_filters_when_not_supplied():
+    repository = InMemorySearchSessionRepository()
+    manager = ConversationManager(repository)
+
+    original_filters = SearchFilters(
+        open_now=True,
+    )
+
+    session = manager.start_session(
+        original_query="Find a quiet cafe",
+        intent=create_intent(),
+        filters=original_filters,
+        places=[],
+        ranked_places=[],
+        assistant_response="I found some options.",
+    )
+
+    manager.replace_search_state(
+        session_id=session.session_id,
+        original_query="Find a barber",
+        intent=SearchIntent(
+            original_query="Find a barber",
+            search_query="barber",
+        ),
+        places=[],
+        ranked_places=[],
+        user_message="Find a barber instead",
+        assistant_response="I found updated results.",
+    )
+
+    assert session.filters == original_filters
+
+
+def test_replace_search_state_returns_none_for_missing_session():
+    repository = InMemorySearchSessionRepository()
+    manager = ConversationManager(repository)
+
+    result = manager.replace_search_state(
+        session_id="missing-session",
+        original_query="Find a barber",
+        intent=create_intent(),
+        places=[],
+        ranked_places=[],
+        user_message="Find a barber",
+        assistant_response="No places were found.",
+    )
+
+    assert result is None
 
 
 def test_get_conversation_history_returns_serialized_messages():

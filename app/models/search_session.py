@@ -7,12 +7,20 @@ from app.models.conversation_message import (
     MessageRole,
 )
 from app.models.search_intent import SearchIntent
+from app.schemas.search import (
+    SearchFilters,
+    SearchLocation,
+)
 
 
 @dataclass
 class SearchSession:
     original_query: str
     intent: SearchIntent
+    location: SearchLocation | None = None
+    filters: SearchFilters = field(
+        default_factory=SearchFilters
+    )
     places: list[dict[str, Any]] = field(default_factory=list)
     ranked_places: list[dict[str, Any]] = field(default_factory=list)
     conversation_history: list[ConversationMessage] = field(

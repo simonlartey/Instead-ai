@@ -2,14 +2,23 @@ from app import create_app
 from app.providers.assistant.fake_provider import (
     FakeAssistantProvider,
 )
+from app.providers.assistant.fake_conversation_decision_provider import (
+    FakeConversationDecisionProvider,
+)
 from app.providers.assistant.openai_provider import (
     OpenAIAssistantProvider,
+)
+from app.providers.assistant.openai_conversation_decision_provider import (
+    OpenAIConversationDecisionProvider,
 )
 from app.providers.places.mock_provider import MockPlacesProvider
 from app.repositories.in_memory_search_session import (
     InMemorySearchSessionRepository,
 )
 from app.services.conversation_manager import ConversationManager
+from app.services.conversation_orchestrator import (
+    ConversationOrchestrator,
+)
 from tests.conftest import TestConfig
 
 
@@ -76,3 +85,51 @@ def test_create_app_registers_conversation_manager():
         app.extensions["conversation_manager"],
         ConversationManager,
     )
+
+
+def test_app_registers_conversation_decision_provider(app):
+    provider = app.extensions[
+        "conversation_decision_provider"
+    ]
+
+    assert isinstance(
+        provider,
+        FakeConversationDecisionProvider,
+    )
+
+
+def test_app_registers_conversation_orchestrator(app):
+    orchestrator = app.extensions[
+        "conversation_orchestrator"
+    ]
+
+    assert isinstance(
+        orchestrator,
+        ConversationOrchestrator,
+    )
+
+    assert (
+        orchestrator.decision_provider
+        is app.extensions[
+            "conversation_decision_provider"
+        ]
+    )
+
+
+def test_app_registers_openai_conversation_decision_provider():
+    class OpenAIConfig(TestConfig):
+        ASSISTANT_PROVIDER = "openai"
+        OPENAI_API_KEY = "test-openai-key"
+        ASSISTANT_MODEL = "test-model"
+
+    app = create_app(OpenAIConfig)
+
+    provider = app.extensions[
+        "conversation_decision_provider"
+    ]
+
+    assert isinstance(
+        provider,
+        OpenAIConversationDecisionProvider,
+    )
+    assert provider.model == "test-model"

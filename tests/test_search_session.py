@@ -4,6 +4,10 @@ from app.models.conversation_message import (
 )
 from app.models.search_intent import SearchIntent
 from app.models.search_session import SearchSession
+from app.schemas.search import (
+    SearchFilters,
+    SearchLocation,
+)
 
 
 def create_intent() -> SearchIntent:
@@ -17,6 +21,18 @@ def create_intent() -> SearchIntent:
 
 def test_search_session_stores_search_state():
     intent = create_intent()
+
+    location = SearchLocation(
+        latitude=43.6591,
+        longitude=-70.2568,
+    )
+
+    filters = SearchFilters(
+        price_levels=(1, 2),
+        open_now=True,
+        minimum_rating=4.5,
+        max_distance_meters=2400,
+    )
 
     places = [
         {
@@ -35,12 +51,16 @@ def test_search_session_stores_search_state():
     session = SearchSession(
         original_query="Find a quiet cafe",
         intent=intent,
+        location=location,
+        filters=filters,
         places=places,
         ranked_places=ranked_places,
     )
 
     assert session.original_query == "Find a quiet cafe"
     assert session.intent == intent
+    assert session.location == location
+    assert session.filters == filters
     assert session.places == places
     assert session.ranked_places == ranked_places
     assert session.conversation_history == []
@@ -108,6 +128,7 @@ def test_search_sessions_do_not_share_mutable_defaults():
 
     assert len(first_session.conversation_history) == 1
     assert second_session.conversation_history == []
+    assert first_session.filters is not second_session.filters
     assert first_session.places is not second_session.places
     assert (
         first_session.ranked_places

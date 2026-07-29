@@ -6,11 +6,35 @@ from flask import (
     request,
 )
 
+from app.models.conversation_action import (
+    ConversationAction,
+)
 from app.providers.places.errors import PlacesProviderError
 from app.schemas.discovery import DiscoveryRequest
-from app.schemas.search import SearchRequest, SearchValidationError
+from app.schemas.search import (
+    SearchFilters,
+    SearchRequest,
+    SearchValidationError,
+)
 from app.services.discovery_service import DiscoveryService
 from app.services.search_service import SearchService
+
+
+def _serialize_search_filters(
+    filters: SearchFilters,
+) -> dict:
+    """Serialize active search filters for API responses."""
+
+    return {
+        "price_levels": list(
+            filters.price_levels
+        ),
+        "open_now": filters.open_now,
+        "minimum_rating": filters.minimum_rating,
+        "max_distance_meters": (
+            filters.max_distance_meters
+        ),
+    }
 
 
 search_api_bp = Blueprint(
@@ -151,6 +175,14 @@ def continue_search(session_id: str):
         "assistant_provider"
     ]
 
+    places_provider = current_app.extensions[
+        "places_provider"
+    ]
+
+    conversation_orchestrator = current_app.extensions[
+        "conversation_orchestrator"
+    ]
+
     session = conversation_manager.get_session(
         session_id
     )
@@ -164,6 +196,205 @@ def continue_search(session_id: str):
                 }
             }
         ), 404
+
+    try:
+        decision = conversation_orchestrator.decide(
+            session=session,
+            message=message,
+        )
+    except Exception:
+        current_app.logger.exception(
+            "Conversation decision failed."
+        )
+
+        return jsonify(
+            {
+                "error": {
+                    "code": "conversation_decision_unavailable",
+                    "message": (
+                        "The search assistant could not interpret "
+                        "that follow-up message."
+                    ),
+                }
+            }
+        ), 503
+
+    if decision.action is ConversationAction.CLARIFY:
+        clarification_question = (
+            decision.clarification_question
+        )
+
+        conversation_manager.continue_session(
+            session_id=session_id,
+            user_message=message,
+            assistant_response=clarification_question,
+        )
+
+        return jsonify(
+            {
+                "session_id": session_id,
+                "action": decision.action.value,
+                "response": clarification_question,
+            }
+        ), 200
+
+    if decision.action is ConversationAction.REFINE_RESULTS:
+        refined_filters = decision.filter_updates.apply(
+            session.filters
+        )
+
+        search_service = SearchService(
+            places_provider=places_provider,
+            assistant_provider=assistant_provider,
+            conversation_manager=conversation_manager,
+        )
+
+        search_request = SearchRequest(
+            query=session.original_query,
+            location=session.location,
+            filters=refined_filters,
+        )
+
+        try:
+            execution = search_service.execute(
+                search_request
+            )
+        except PlacesProviderError:
+            current_app.logger.exception(
+                "Places provider failed during conversational refinement."
+            )
+
+            return jsonify(
+                {
+                    "error": {
+                        "code": "places_provider_unavailable",
+                        "message": (
+                            "Local recommendations are "
+                            "temporarily unavailable."
+                        ),
+                    }
+                }
+            ), 503
+
+        assistant_response = (
+            execution.assistant_response
+            or "I refined the results for your request."
+        )
+
+        conversation_manager.replace_search_state(
+            session_id=session_id,
+            original_query=session.original_query,
+            intent=execution.intent,
+            places=execution.places,
+            ranked_places=execution.ranked_places,
+            user_message=message,
+            assistant_response=assistant_response,
+            filters=refined_filters,
+        )
+
+        return jsonify(
+            {
+                "session_id": session_id,
+                "action": decision.action.value,
+                "query": session.original_query,
+                "result_count": len(
+                    execution.ranked_places
+                ),
+                "results": execution.ranked_places,
+                "response": assistant_response,
+                "filters": _serialize_search_filters(
+                    refined_filters
+                ),
+                "filter_status": {
+                    "mode": execution.filter_mode,
+                    "title": execution.filter_title,
+                    "message": execution.filter_message,
+                },
+            }
+        ), 200
+
+    if decision.action is ConversationAction.RUN_NEW_SEARCH:
+        search_service = SearchService(
+            places_provider=places_provider,
+            assistant_provider=assistant_provider,
+            conversation_manager=conversation_manager,
+        )
+
+        search_request = SearchRequest(
+            query=decision.rewritten_query,
+            location=session.location,
+            filters=session.filters,
+        )
+
+        try:
+            execution = search_service.execute(
+                search_request
+            )
+        except PlacesProviderError:
+            current_app.logger.exception(
+                "Places provider failed during conversational search."
+            )
+
+            return jsonify(
+                {
+                    "error": {
+                        "code": "places_provider_unavailable",
+                        "message": (
+                            "Local recommendations are "
+                            "temporarily unavailable."
+                        ),
+                    }
+                }
+            ), 503
+
+        assistant_response = (
+            execution.assistant_response
+            or "I found updated results for your request."
+        )
+
+        conversation_manager.replace_search_state(
+            session_id=session_id,
+            original_query=decision.rewritten_query,
+            intent=execution.intent,
+            places=execution.places,
+            ranked_places=execution.ranked_places,
+            user_message=message,
+            assistant_response=assistant_response,
+        )
+
+        return jsonify(
+            {
+                "session_id": session_id,
+                "action": decision.action.value,
+                "query": decision.rewritten_query,
+                "result_count": len(
+                    execution.ranked_places
+                ),
+                "results": execution.ranked_places,
+                "response": assistant_response,
+                "filters": _serialize_search_filters(
+                    session.filters
+                ),
+                "filter_status": {
+                    "mode": execution.filter_mode,
+                    "title": execution.filter_title,
+                    "message": execution.filter_message,
+                },
+            }
+        ), 200
+
+    if decision.action is not ConversationAction.ANSWER_EXISTING:
+        return jsonify(
+            {
+                "error": {
+                    "code": "conversation_action_not_supported",
+                    "message": (
+                        "This type of follow-up is not supported yet."
+                    ),
+                    "action": decision.action.value,
+                }
+            }
+        ), 409
 
     history = conversation_manager.get_conversation_history(
         session_id
@@ -200,6 +431,7 @@ def continue_search(session_id: str):
     return jsonify(
         {
             "session_id": session_id,
+            "action": decision.action.value,
             "response": response,
         }
     ), 200

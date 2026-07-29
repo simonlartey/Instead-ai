@@ -1,5 +1,8 @@
 from uuid import uuid4
 
+from app.models.search_execution_result import (
+    SearchExecutionResult,
+)
 from app.models.search_intent import SearchIntent
 from app.providers.assistant.base import AssistantProvider
 from app.providers.places.base import PlacesProvider
@@ -31,6 +34,46 @@ class SearchService:
         self.place_filter = place_filter or PlaceFilter()
 
     def search(self, search_request: SearchRequest) -> dict:
+        execution = self.execute(search_request)
+
+        session = None
+
+        if self.conversation_manager is not None:
+            session = self.conversation_manager.start_session(
+                original_query=search_request.query,
+                intent=execution.intent,
+                location=search_request.location,
+                filters=search_request.filters,
+                places=execution.places,
+                ranked_places=execution.ranked_places,
+                assistant_response=execution.assistant_response,
+            )
+
+        return {
+            "search_id": (
+                session.session_id
+                if session is not None
+                else f"search_{uuid4().hex}"
+            ),
+            "query": search_request.query,
+            "result_count": len(
+                execution.ranked_places
+            ),
+            "results": execution.ranked_places,
+            "assistant_response": (
+                execution.assistant_response
+            ),
+            "filter_status": {
+                "mode": execution.filter_mode,
+                "title": execution.filter_title,
+                "message": execution.filter_message,
+            },
+        }
+
+    def execute(
+        self,
+        search_request: SearchRequest,
+    ) -> SearchExecutionResult:
         latitude = None
         longitude = None
 
@@ -64,33 +107,15 @@ class SearchService:
             places=ranked_results,
         )
 
-        session = None
-
-        if self.conversation_manager is not None:
-            session = self.conversation_manager.start_session(
-                original_query=search_request.query,
-                intent=intent,
-                places=filtered_results,
-                ranked_places=ranked_results,
-                assistant_response=assistant_response,
-            )
-
-        return {
-            "search_id": (
-                session.session_id
-                if session is not None
-                else f"search_{uuid4().hex}"
-            ),
-            "query": search_request.query,
-            "result_count": len(ranked_results),
-            "results": ranked_results,
-            "assistant_response": assistant_response,
-            "filter_status": {
-                "mode": filter_result.mode,
-                "title": filter_result.title,
-                "message": filter_result.message,
-            },
-        }
+        return SearchExecutionResult(
+            intent=intent,
+            places=filtered_results,
+            ranked_places=ranked_results,
+            assistant_response=assistant_response,
+            filter_mode=filter_result.mode,
+            filter_title=filter_result.title,
+            filter_message=filter_result.message,
+        )
 
     def _parse_search_intent(
         self,

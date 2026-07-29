@@ -2639,6 +2639,90 @@ const resetResultFilters = () => {
     });
 };
 
+const syncResultFilters = (filters) => {
+  resetResultFilters();
+
+  if (
+    !filters ||
+    typeof filters !== "object" ||
+    Array.isArray(filters)
+  ) {
+    lastAppliedFilterSignature = "";
+    return;
+  }
+
+  const priceLevels = Array.isArray(
+    filters.price_levels
+  )
+    ? new Set(
+        filters.price_levels
+          .map(Number)
+          .filter(Number.isFinite)
+      )
+    : new Set();
+
+  if (priceLevels.has(1)) {
+    activeResultFilters.add("budget");
+  }
+
+  if (priceLevels.has(2)) {
+    activeResultFilters.add("moderate");
+  }
+
+  if (
+    priceLevels.has(3) ||
+    priceLevels.has(4)
+  ) {
+    activeResultFilters.add("premium");
+  }
+
+  if (filters.open_now === true) {
+    activeResultFilters.add("open");
+  }
+
+  if (
+    Number(filters.minimum_rating) ===
+    FILTER_SETTINGS.rated.minimumRating
+  ) {
+    activeResultFilters.add("rated");
+  }
+
+  const nearbyDistanceMeters = Math.round(
+    FILTER_SETTINGS.nearby
+      .maximumDistanceMiles * METERS_PER_MILE
+  );
+
+  if (
+    Number(filters.max_distance_meters) ===
+    nearbyDistanceMeters
+  ) {
+    activeResultFilters.add("nearby");
+  }
+
+  document
+    .querySelectorAll(SELECTORS.filterChip)
+    .forEach((chip) => {
+      const filterName = chip.dataset.filter;
+      const isActive =
+        filterName === "all"
+          ? activeResultFilters.size === 0
+          : activeResultFilters.has(filterName);
+
+      chip.classList.toggle(
+        "filter-chip--active",
+        isActive
+      );
+
+      chip.setAttribute(
+        "aria-pressed",
+        String(isActive)
+      );
+    });
+
+  lastAppliedFilterSignature =
+    buildFilterSignature(filters);
+};
+
 const refreshSearchWithActiveFilters = async () => {
   if (
     typeof currentSearchQuery !== "string" ||
@@ -3938,6 +4022,97 @@ const continueSearchConversation = async (
   return data;
 };
 
+const applyContinuationSearchResponse = (
+  response,
+  status
+) => {
+  const action =
+    typeof response.action === "string"
+      ? response.action
+      : "";
+
+  const updatesSearchResults =
+    action === "run_new_search" ||
+    action === "refine_results";
+
+  if (!updatesSearchResults) {
+    status.textContent =
+      action === "clarify"
+        ? "More information is needed."
+        : "Conversation continued.";
+
+    return;
+  }
+
+  if (
+    typeof response.session_id === "string" &&
+    response.session_id
+  ) {
+    activeSearchSessionId =
+      response.session_id;
+  }
+
+  if (
+    typeof response.query === "string" &&
+    response.query.trim()
+  ) {
+    currentSearchQuery =
+      response.query.trim();
+  }
+
+  syncResultFilters(response.filters);
+
+  currentSearchPlaces =
+    Array.isArray(response.results)
+      ? [...response.results]
+      : [];
+
+  currentFilterStatus =
+    normalizeFilterStatus(
+      response.filter_status
+    );
+
+  if (currentSearchPlaces.length === 0) {
+    applySearchResults([]);
+
+    showResultsState({
+      title:
+        currentFilterStatus?.title ||
+        "No matching places found",
+      message:
+        currentFilterStatus?.message ||
+        (
+          "Try changing your wording or " +
+          "broadening your search."
+        ),
+    });
+
+    status.textContent =
+      "Search complete. No matching places found.";
+
+    return;
+  }
+
+  hideResultsState();
+  renderFilteredSearchResults();
+
+  const resultCount =
+    Number.isInteger(response.result_count)
+      ? response.result_count
+      : currentSearchPlaces.length;
+
+  status.textContent =
+    action === "refine_results"
+      ? (
+          `Results refined. Found ` +
+          `${resultCount} results.`
+        )
+      : (
+          `New search complete. Found ` +
+          `${resultCount} results.`
+        );
+};
+
 
 const setSearchLoadingState = (isLoading) => {
   const progress = document.querySelector(
@@ -4175,13 +4350,22 @@ const initializeDashboardSearch = () => {
           return;
         }
 
+        const assistantResponse =
+          typeof continuationResponse.response ===
+            "string"
+            ? continuationResponse.response.trim()
+            : "";
+
         updateConversationMessage(
           pendingAssistantMessage,
-          continuationResponse.response
+          assistantResponse ||
+            "I updated the conversation."
         );
 
-        status.textContent =
-          "Conversation continued.";
+        applyContinuationSearchResponse(
+          continuationResponse,
+          status
+        );
 
         return;
       }
