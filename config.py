@@ -82,3 +82,12 @@ class Config:
     SESSION_COOKIE_SECURE = (
         os.environ.get("FLASK_ENV") == "production"
     )
+
+    ADMIN_EMAILS = frozenset(
+        email.strip().lower()
+        for email in os.environ.get(
+            "ADMIN_EMAILS",
+            "",
+        ).split(",")
+        if email.strip()
+    )
