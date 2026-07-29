@@ -1180,6 +1180,281 @@ def test_continue_search_runs_new_search_in_existing_session(
     )
 
 
+def test_search_session_supports_multi_step_conversation_flow(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Find quiet cafes",
+            "location": {
+                "latitude": 43.6591,
+                "longitude": -70.2568,
+            },
+            "filters": {
+                "open_now": True,
+            },
+        },
+    )
+
+    assert initial_response.status_code == 200
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    original_session = repository.get(session_id)
+
+    assert original_session is not None
+    assert original_session.original_query == (
+        "Find quiet cafes"
+    )
+    assert original_session.filters.open_now is True
+    assert len(
+        original_session.conversation_history
+    ) == 2
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.side_effect = [
+        ConversationDecision(
+            action=ConversationAction.ANSWER_EXISTING,
+        ),
+        ConversationDecision(
+            action=ConversationAction.REFINE_RESULTS,
+            filter_updates=SearchFilterUpdates(
+                price_levels=(1, 2),
+                minimum_rating=4.5,
+            ),
+        ),
+        ConversationDecision(
+            action=ConversationAction.RUN_NEW_SEARCH,
+            rewritten_query="barber near campus",
+        ),
+    ]
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    answer_response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Which one has the best rating?",
+        },
+    )
+
+    assert answer_response.status_code == 200
+
+    answer_data = answer_response.get_json()
+
+    assert answer_data["session_id"] == session_id
+    assert answer_data["action"] == "answer_existing"
+    assert answer_data["response"]
+
+    session_after_answer = repository.get(session_id)
+
+    assert session_after_answer is original_session
+    assert session_after_answer.original_query == (
+        "Find quiet cafes"
+    )
+    assert session_after_answer.filters.open_now is True
+    assert len(
+        session_after_answer.conversation_history
+    ) == 4
+
+    initial_places = list(
+        session_after_answer.ranked_places
+    )
+
+    places_provider = app.extensions[
+        "places_provider"
+    ]
+    original_places_search = places_provider.search
+
+    def search_for_conversation(
+        query,
+        latitude=None,
+        longitude=None,
+    ):
+        if query == "barber near campus":
+            return [
+                {
+                    "id": "campus-barber",
+                    "name": "Campus Barber",
+                    "category": "Barber shop",
+                    "rating": 4.9,
+                    "review_count": 180,
+                    "distance_miles": 0.3,
+                    "price_level": 1,
+                    "open_now": True,
+                }
+            ]
+
+        return original_places_search(
+            query=query,
+            latitude=latitude,
+            longitude=longitude,
+        )
+
+    places_provider.search = Mock(
+        side_effect=search_for_conversation
+    )
+
+    refine_response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": (
+                "Only show affordable options rated "
+                "at least 4.5"
+            ),
+        },
+    )
+
+    assert refine_response.status_code == 200
+
+    refine_data = refine_response.get_json()
+
+    assert refine_data["session_id"] == session_id
+    assert refine_data["action"] == "refine_results"
+    assert refine_data["query"] == "Find quiet cafes"
+    assert refine_data["result_count"] == len(
+        refine_data["results"]
+    )
+    assert refine_data["filters"] == {
+        "price_levels": [1, 2],
+        "open_now": True,
+        "minimum_rating": 4.5,
+        "max_distance_meters": None,
+    }
+    assert refine_data["filter_status"]["mode"] in {
+        "exact",
+        "fallback",
+        "empty",
+    }
+
+    session_after_refinement = repository.get(
+        session_id
+    )
+
+    assert session_after_refinement is original_session
+    assert session_after_refinement.original_query == (
+        "Find quiet cafes"
+    )
+    assert (
+        session_after_refinement.intent.original_query
+        == "Find quiet cafes"
+    )
+    assert (
+        session_after_refinement.filters.price_levels
+        == (1, 2)
+    )
+    assert (
+        session_after_refinement.filters.open_now
+        is True
+    )
+    assert (
+        session_after_refinement.filters.minimum_rating
+        == 4.5
+    )
+    assert len(
+        session_after_refinement.conversation_history
+    ) == 6
+
+    new_search_response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": "Find a barber instead",
+        },
+    )
+
+    assert new_search_response.status_code == 200
+
+    new_search_data = new_search_response.get_json()
+
+    assert new_search_data["session_id"] == session_id
+    assert new_search_data["action"] == "run_new_search"
+    assert new_search_data["query"] == (
+        "barber near campus"
+    )
+    assert new_search_data["result_count"] == len(
+        new_search_data["results"]
+    )
+    assert new_search_data["filters"] == {
+        "price_levels": [1, 2],
+        "open_now": True,
+        "minimum_rating": 4.5,
+        "max_distance_meters": None,
+    }
+    assert new_search_data["filter_status"]["mode"] in {
+        "exact",
+        "fallback",
+        "empty",
+    }
+
+    final_session = repository.get(session_id)
+
+    assert final_session is original_session
+    assert final_session.session_id == session_id
+    assert final_session.original_query == (
+        "barber near campus"
+    )
+    assert final_session.intent.original_query == (
+        "barber near campus"
+    )
+
+    assert final_session.location.latitude == (
+        43.6591
+    )
+    assert final_session.location.longitude == (
+        -70.2568
+    )
+
+    assert final_session.filters.price_levels == (
+        1,
+        2,
+    )
+    assert final_session.filters.open_now is True
+    assert final_session.filters.minimum_rating == (
+        4.5
+    )
+
+    assert len(
+        final_session.conversation_history
+    ) == 8
+
+    assert [
+        message.content
+        for message in (
+            final_session.conversation_history[-6:]
+        )
+        if message.role is MessageRole.USER
+    ] == [
+        "Which one has the best rating?",
+        (
+            "Only show affordable options rated "
+            "at least 4.5"
+        ),
+        "Find a barber instead",
+    ]
+
+    assert final_session.ranked_places == (
+        new_search_data["results"]
+    )
+    assert final_session.ranked_places != (
+        initial_places
+    )
+
+    assert (
+        conversation_orchestrator.decide.call_count
+        == 3
+    )
+
+
 def test_continue_search_handles_new_search_provider_failure(
     app,
     client,
