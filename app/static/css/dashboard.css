@@ -3032,6 +3032,36 @@ svg {
   white-space: nowrap;
 }
 
+.student-deal-link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 0 14px;
+  color: #101412;
+  background: var(--dashboard-accent);
+  border: 1px solid var(--dashboard-accent);
+  border-radius: 11px;
+  font-size: 0.77rem;
+  font-weight: 850;
+  text-decoration: none;
+  transition:
+    filter 160ms ease,
+    transform 160ms ease;
+}
+
+.student-deal-link:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.student-deal-link svg {
+  width: 15px;
+  height: 15px;
+}
+
 .student-deals-hero-actions {
   display: flex;
   flex: 0 0 auto;
@@ -3184,6 +3214,14 @@ svg {
 .deal-form-field select {
   min-height: 46px;
   padding: 0 13px;
+}
+
+.deal-form-hint {
+  display: block;
+  margin-top: 7px;
+  color: var(--dashboard-subtle);
+  font-size: 0.7rem;
+  line-height: 1.45;
 }
 
 .deal-form-field textarea {
@@ -3520,6 +3558,27 @@ svg {
   color: var(--dashboard-text);
   font-size: 0.8rem;
   line-height: 1.5;
+}
+
+.deal-review-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--dashboard-accent);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.deal-review-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.deal-review-link svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .deal-review-actions {

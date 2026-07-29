@@ -2370,6 +2370,52 @@ const createStudentDealMeta = ({
   return row;
 };
 
+const createExternalDealLink = ({
+  url,
+  label,
+  className,
+  icon = "external-link",
+}) => {
+  if (
+    typeof url !== "string" ||
+    !url.trim()
+  ) {
+    return null;
+  }
+
+  const link = document.createElement("a");
+
+  link.className = className;
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+
+  const iconElement =
+    document.createElement("span");
+
+  iconElement.setAttribute(
+    "aria-hidden",
+    "true"
+  );
+
+  iconElement.setAttribute(
+    "data-lucide",
+    icon
+  );
+
+  const labelElement =
+    document.createElement("span");
+
+  labelElement.textContent = label;
+
+  link.append(
+    iconElement,
+    labelElement
+  );
+
+  return link;
+};
+
 const createStudentDealCard = (deal) => {
   const card = document.createElement("article");
 
@@ -2507,6 +2553,16 @@ const createStudentDealCard = (deal) => {
     );
 
     footer.append(code);
+  }
+
+  const dealLink = createExternalDealLink({
+    url: deal.deal_url,
+    label: "View deal",
+    className: "student-deal-link",
+  });
+
+  if (dealLink) {
+    footer.append(dealLink);
   }
 
   card.append(
@@ -2777,6 +2833,10 @@ const serializeDealSubmission = (form) => {
       formData.get("business_name"),
     business_email:
       formData.get("business_email"),
+    business_url:
+      formData.get("business_url"),
+    deal_url:
+      formData.get("deal_url"),
     title: formData.get("title"),
     category: formData.get("category"),
     discount_text:
@@ -3046,6 +3106,8 @@ const createDealReviewDetail = ({
   label,
   value,
   wide = false,
+  url = null,
+  linkLabel = "Open link",
 }) => {
   const detail = document.createElement("div");
 
@@ -3071,8 +3133,23 @@ const createDealReviewDetail = ({
   valueElement.className =
     "deal-review-detail-value";
 
-  valueElement.textContent =
-    value || "Not provided";
+  if (url) {
+    const link = createExternalDealLink({
+      url,
+      label: linkLabel,
+      className: "deal-review-link",
+    });
+
+    if (link) {
+      valueElement.append(link);
+    } else {
+      valueElement.textContent =
+        "Not provided";
+    }
+  } else {
+    valueElement.textContent =
+      value || "Not provided";
+  }
 
   detail.append(
     labelElement,
@@ -3221,6 +3298,18 @@ const createDealReviewCard = (deal) => {
       value: formatDealReviewDate(
         deal.expires_at
       ),
+    }),
+    createDealReviewDetail({
+      label: "Business website or profile",
+      url: deal.business_url,
+      linkLabel: "Open business page",
+      wide: true,
+    }),
+    createDealReviewDetail({
+      label: "Deal or redemption page",
+      url: deal.deal_url,
+      linkLabel: "Open deal page",
+      wide: true,
     }),
     createDealReviewDetail({
       label: "Description",
