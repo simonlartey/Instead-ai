@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -80,6 +80,26 @@ def test_provider_requires_model():
             api_key="test-key",
             model="",
         )
+
+
+def test_provider_configures_default_client_timeout():
+    client = Mock()
+
+    with patch(
+        "app.providers.assistant."
+        "openai_conversation_decision_provider.OpenAI",
+        return_value=client,
+    ) as openai:
+        provider = OpenAIConversationDecisionProvider(
+            api_key="test-key",
+            model="test-model",
+        )
+
+    openai.assert_called_once_with(
+        api_key="test-key",
+        timeout=20.0,
+    )
+    assert provider.client is client
 
 
 def test_provider_returns_answer_existing_decision():

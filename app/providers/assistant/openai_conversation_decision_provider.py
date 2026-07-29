@@ -43,6 +43,7 @@ class OpenAIConversationDecisionProvider(
 
         self.client = client or OpenAI(
             api_key=api_key,
+            timeout=20.0,
         )
         self.model = model
 
