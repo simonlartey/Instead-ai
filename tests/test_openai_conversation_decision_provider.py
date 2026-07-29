@@ -10,6 +10,7 @@ from app.models.search_intent import SearchIntent
 from app.providers.assistant.openai_conversation_decision_provider import (
     OpenAIConversationDecisionProvider,
 )
+from app.schemas.search import SearchValidationError
 
 
 def build_provider(output_text: str):
@@ -146,6 +147,88 @@ def test_provider_returns_clarification_decision():
     assert decision.clarification_question == (
         "What should be better?"
     )
+
+
+def test_provider_returns_refine_results_decision():
+    provider, client = build_provider(
+        """
+        {
+          "action": "refine_results",
+          "rewritten_query": null,
+          "clarification_question": null,
+          "filter_updates": {
+            "price_levels": [1, 2],
+            "open_now": true,
+            "minimum_rating": 4.5,
+            "max_distance_meters": 2400
+          }
+        }
+        """
+    )
+
+    decision = decide(provider)
+
+    assert decision.action is (
+        ConversationAction.REFINE_RESULTS
+    )
+    assert decision.filter_updates is not None
+    assert decision.filter_updates.price_levels == (
+        1,
+        2,
+    )
+    assert decision.filter_updates.open_now is True
+    assert (
+        decision.filter_updates.minimum_rating
+        == 4.5
+    )
+    assert (
+        decision.filter_updates.max_distance_meters
+        == 2400
+    )
+
+    call = client.responses.create.call_args.kwargs
+
+    assert "filter_updates" in call["instructions"]
+    assert "price_levels" in call["instructions"]
+    assert "minimum_rating" in call["instructions"]
+
+
+def test_provider_rejects_refine_results_without_updates():
+    provider, _ = build_provider(
+        """
+        {
+          "action": "refine_results",
+          "rewritten_query": null,
+          "clarification_question": null,
+          "filter_updates": null
+        }
+        """
+    )
+
+    with pytest.raises(
+        SearchValidationError,
+        match="Filter updates must be an object",
+    ):
+        decide(provider)
+
+
+def test_provider_rejects_empty_refine_updates():
+    provider, _ = build_provider(
+        """
+        {
+          "action": "refine_results",
+          "rewritten_query": null,
+          "clarification_question": null,
+          "filter_updates": {}
+        }
+        """
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="REFINE_RESULTS requires filter updates",
+    ):
+        decide(provider)
 
 
 def test_provider_rejects_non_object_json():

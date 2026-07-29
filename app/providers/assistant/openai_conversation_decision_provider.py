@@ -9,6 +9,9 @@ from app.models.conversation_action import (
 from app.models.conversation_decision import (
     ConversationDecision,
 )
+from app.models.search_filter_updates import (
+    SearchFilterUpdates,
+)
 from app.models.search_intent import SearchIntent
 from app.providers.assistant.conversation_decision_provider import (
     ConversationDecisionProvider,
@@ -56,18 +59,23 @@ class OpenAIConversationDecisionProvider(
                 "Classify the latest follow-up message in an "
                 "existing local-search conversation. Return only "
                 "valid JSON with these keys: action, "
-                "rewritten_query, clarification_question. "
+                "rewritten_query, clarification_question, "
+                "filter_updates. "
                 "The action must be one of: answer_existing, "
                 "refine_results, run_new_search, clarify. "
                 "Use answer_existing when the user asks a question "
                 "that can be answered from the existing places. "
-                "Use refine_results when the user adds constraints "
-                "to the same type of search. "
+                "Use refine_results when the user adds or changes "
+                "constraints while keeping the same kind of place. "
+                "For refine_results, include filter_updates as an "
+                "object containing one or more of: price_levels, "
+                "open_now, minimum_rating, max_distance_meters. "
                 "Use run_new_search when the user changes what kind "
                 "of place they want. Include a complete rewritten_query. "
                 "Use clarify when the request is too ambiguous to act "
                 "on safely. Include a concise clarification_question. "
-                "Use null for fields that do not apply."
+                "Use null for fields that do not apply, including "
+                "filter_updates for actions other than refine_results."
             ),
             input=(
                 "Original search intent:\n"
@@ -108,6 +116,13 @@ class OpenAIConversationDecisionProvider(
                 "OpenAI returned an unsupported conversation action"
             ) from error
 
+        filter_updates = None
+
+        if action is ConversationAction.REFINE_RESULTS:
+            filter_updates = SearchFilterUpdates.from_dict(
+                payload.get("filter_updates")
+            )
+
         return ConversationDecision(
             action=action,
             rewritten_query=self._optional_string(
@@ -116,6 +131,7 @@ class OpenAIConversationDecisionProvider(
             clarification_question=self._optional_string(
                 payload.get("clarification_question")
             ),
+            filter_updates=filter_updates,
         )
 
     @staticmethod
