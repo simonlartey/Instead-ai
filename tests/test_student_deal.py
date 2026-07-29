@@ -55,6 +55,13 @@ def test_student_deal_stores_submission_details(app):
             category=DealCategory.FOOD,
             promo_code="STUDENT15",
             terms="Dine-in orders only.",
+            business_url=(
+                "https://downtowncoffee.example.com"
+            ),
+            deal_url=(
+                "https://downtowncoffee.example.com/"
+                "student-discount"
+            ),
             expires_at=expires_at,
         )
 
@@ -68,6 +75,13 @@ def test_student_deal_stores_submission_details(app):
         assert stored_deal.category is DealCategory.FOOD
         assert stored_deal.promo_code == "STUDENT15"
         assert stored_deal.terms == "Dine-in orders only."
+        assert stored_deal.business_url == (
+            "https://downtowncoffee.example.com"
+        )
+        assert stored_deal.deal_url == (
+            "https://downtowncoffee.example.com/"
+            "student-discount"
+        )
         assert stored_deal.expires_at is not None
 
 
@@ -113,3 +127,20 @@ def test_student_deal_repr_contains_business_and_status(app):
 
         assert "Downtown Coffee" in representation
         assert "pending" in representation
+
+
+def test_student_deal_allows_missing_urls(app):
+    with app.app_context():
+        deal = build_student_deal()
+
+        db.session.add(deal)
+        db.session.commit()
+
+        stored_deal = db.session.get(
+            StudentDeal,
+            deal.id,
+        )
+
+        assert stored_deal is not None
+        assert stored_deal.business_url is None
+        assert stored_deal.deal_url is None

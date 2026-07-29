@@ -139,6 +139,16 @@ class StudentDeal(db.Model):
         index=True,
     )
 
+    business_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    deal_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
     starts_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
