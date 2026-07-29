@@ -217,6 +217,78 @@ def continue_search(session_id: str):
             }
         ), 200
 
+    if decision.action is ConversationAction.REFINE_RESULTS:
+        refined_filters = decision.filter_updates.apply(
+            session.filters
+        )
+
+        search_service = SearchService(
+            places_provider=places_provider,
+            assistant_provider=assistant_provider,
+            conversation_manager=conversation_manager,
+        )
+
+        search_request = SearchRequest(
+            query=session.original_query,
+            location=session.location,
+            filters=refined_filters,
+        )
+
+        try:
+            execution = search_service.execute(
+                search_request
+            )
+        except PlacesProviderError:
+            current_app.logger.exception(
+                "Places provider failed during conversational refinement."
+            )
+
+            return jsonify(
+                {
+                    "error": {
+                        "code": "places_provider_unavailable",
+                        "message": (
+                            "Local recommendations are "
+                            "temporarily unavailable."
+                        ),
+                    }
+                }
+            ), 503
+
+        assistant_response = (
+            execution.assistant_response
+            or "I refined the results for your request."
+        )
+
+        conversation_manager.replace_search_state(
+            session_id=session_id,
+            original_query=session.original_query,
+            intent=execution.intent,
+            places=execution.places,
+            ranked_places=execution.ranked_places,
+            user_message=message,
+            assistant_response=assistant_response,
+            filters=refined_filters,
+        )
+
+        return jsonify(
+            {
+                "session_id": session_id,
+                "action": decision.action.value,
+                "query": session.original_query,
+                "result_count": len(
+                    execution.ranked_places
+                ),
+                "results": execution.ranked_places,
+                "response": assistant_response,
+                "filter_status": {
+                    "mode": execution.filter_mode,
+                    "title": execution.filter_title,
+                    "message": execution.filter_message,
+                },
+            }
+        ), 200
+
     if decision.action is ConversationAction.RUN_NEW_SEARCH:
         search_service = SearchService(
             places_provider=places_provider,

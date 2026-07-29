@@ -906,7 +906,111 @@ def test_continue_search_handles_decision_failure(
     assert len(session.conversation_history) == 2
 
 
-def test_continue_search_returns_unsupported_refine_action(
+def test_continue_search_refines_existing_results(
+    app,
+    client,
+):
+    initial_response = client.post(
+        "/api/v1/search",
+        json={
+            "query": "Barber",
+            "location": {
+                "latitude": 43.6591,
+                "longitude": -70.2568,
+            },
+            "filters": {
+                "minimum_rating": 4.0,
+            },
+        },
+    )
+
+    session_id = initial_response.get_json()[
+        "search_id"
+    ]
+
+    repository = app.extensions[
+        "search_session_repository"
+    ]
+
+    original_session = repository.get(session_id)
+
+    conversation_orchestrator = Mock()
+    conversation_orchestrator.decide.return_value = (
+        ConversationDecision(
+            action=ConversationAction.REFINE_RESULTS,
+            filter_updates=SearchFilterUpdates(
+                price_levels=(1,),
+                open_now=True,
+                minimum_rating=4.5,
+            ),
+        )
+    )
+
+    app.extensions[
+        "conversation_orchestrator"
+    ] = conversation_orchestrator
+
+    response = client.post(
+        f"/api/v1/search/{session_id}/continue",
+        json={
+            "message": (
+                "Only show affordable places that are "
+                "open now and rated at least 4.5"
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.get_json()
+
+    assert data["session_id"] == session_id
+    assert data["action"] == "refine_results"
+    assert data["query"] == "Barber"
+    assert data["result_count"] == len(
+        data["results"]
+    )
+    assert data["response"]
+
+    updated_session = repository.get(session_id)
+
+    assert updated_session is original_session
+    assert updated_session.original_query == "Barber"
+
+    assert updated_session.filters.price_levels == (
+        1,
+    )
+    assert updated_session.filters.open_now is True
+    assert updated_session.filters.minimum_rating == (
+        4.5
+    )
+
+    assert updated_session.location.latitude == (
+        43.6591
+    )
+    assert updated_session.location.longitude == (
+        -70.2568
+    )
+
+    assert len(
+        updated_session.conversation_history
+    ) == 4
+
+    assert (
+        updated_session.conversation_history[-2].content
+        == (
+            "Only show affordable places that are "
+            "open now and rated at least 4.5"
+        )
+    )
+
+    assert (
+        updated_session.conversation_history[-1].content
+        == data["response"]
+    )
+
+
+def test_continue_search_handles_refinement_provider_failure(
     app,
     client,
 ):
@@ -914,6 +1018,9 @@ def test_continue_search_returns_unsupported_refine_action(
         "/api/v1/search",
         json={
             "query": "Find quiet cafes",
+            "filters": {
+                "open_now": True,
+            },
         },
     )
 
@@ -926,7 +1033,7 @@ def test_continue_search_returns_unsupported_refine_action(
         ConversationDecision(
             action=ConversationAction.REFINE_RESULTS,
             filter_updates=SearchFilterUpdates(
-                price_levels=(1, 2),
+                minimum_rating=4.5,
             ),
         )
     )
@@ -935,24 +1042,23 @@ def test_continue_search_returns_unsupported_refine_action(
         "conversation_orchestrator"
     ] = conversation_orchestrator
 
+    places_provider = app.extensions[
+        "places_provider"
+    ]
+    places_provider.search = Mock(
+        side_effect=PlacesProviderError(
+            "Provider unavailable"
+        )
+    )
+
     response = client.post(
         f"/api/v1/search/{session_id}/continue",
         json={
-            "message": "Only show cheaper options",
+            "message": "Only show highly rated ones",
         },
     )
 
-    assert response.status_code == 409
-
-    assert response.get_json() == {
-        "error": {
-            "code": "conversation_action_not_supported",
-            "message": (
-                "This type of follow-up is not supported yet."
-            ),
-            "action": "refine_results",
-        }
-    }
+    assert response.status_code == 503
 
     repository = app.extensions[
         "search_session_repository"
@@ -961,6 +1067,11 @@ def test_continue_search_returns_unsupported_refine_action(
     session = repository.get(session_id)
 
     assert session is not None
+    assert session.original_query == (
+        "Find quiet cafes"
+    )
+    assert session.filters.open_now is True
+    assert session.filters.minimum_rating is None
     assert len(session.conversation_history) == 2
 
 

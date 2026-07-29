@@ -93,6 +93,7 @@ class ConversationManager:
         ranked_places: list[dict[str, Any]],
         user_message: str,
         assistant_response: str,
+        filters: SearchFilters | None = None,
     ) -> SearchSession | None:
         """Replace search results while preserving the conversation session."""
 
@@ -105,6 +106,9 @@ class ConversationManager:
         session.intent = intent
         session.places = places
         session.ranked_places = ranked_places
+
+        if filters is not None:
+            session.filters = filters
 
         session.add_message(
             role=MessageRole.USER,

@@ -258,6 +258,12 @@ def test_replace_search_state_updates_existing_session():
         category="barber",
     )
 
+    updated_filters = SearchFilters(
+        price_levels=(1, 2),
+        open_now=True,
+        minimum_rating=4.5,
+    )
+
     updated_session = manager.replace_search_state(
         session_id=session.session_id,
         original_query="Find a barber instead",
@@ -278,6 +284,7 @@ def test_replace_search_state_updates_existing_session():
         assistant_response=(
             "Campus Cuts is the strongest match."
         ),
+        filters=updated_filters,
     )
 
     assert updated_session is session
@@ -297,6 +304,7 @@ def test_replace_search_state_updates_existing_session():
             "name": "Campus Cuts",
         }
     ]
+    assert session.filters == updated_filters
 
     assert len(session.conversation_history) == 4
     assert session.conversation_history[-2].content == (
@@ -307,6 +315,39 @@ def test_replace_search_state_updates_existing_session():
     )
 
     assert repository.get(session.session_id) is session
+
+
+def test_replace_search_state_preserves_filters_when_not_supplied():
+    repository = InMemorySearchSessionRepository()
+    manager = ConversationManager(repository)
+
+    original_filters = SearchFilters(
+        open_now=True,
+    )
+
+    session = manager.start_session(
+        original_query="Find a quiet cafe",
+        intent=create_intent(),
+        filters=original_filters,
+        places=[],
+        ranked_places=[],
+        assistant_response="I found some options.",
+    )
+
+    manager.replace_search_state(
+        session_id=session.session_id,
+        original_query="Find a barber",
+        intent=SearchIntent(
+            original_query="Find a barber",
+            search_query="barber",
+        ),
+        places=[],
+        ranked_places=[],
+        user_message="Find a barber instead",
+        assistant_response="I found updated results.",
+    )
+
+    assert session.filters == original_filters
 
 
 def test_replace_search_state_returns_none_for_missing_session():
