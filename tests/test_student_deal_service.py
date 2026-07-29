@@ -41,6 +41,8 @@ def build_submission(**overrides):
             "Show a valid student ID before payment."
         ),
         "business_email": "owner@example.com",
+        "business_url": None,
+        "deal_url": None,
         "terms": None,
         "promo_code": None,
         "starts_at": None,
@@ -66,6 +68,8 @@ def build_deal(**overrides):
             "Show a valid student ID before payment."
         ),
         "business_email": "owner@example.com",
+        "business_url": None,
+        "deal_url": None,
         "source": DealSource.BUSINESS,
         "status": DealStatus.APPROVED,
         "is_featured": False,
@@ -114,6 +118,13 @@ def test_submit_business_deal_copies_submission_fields(app):
 
         deal = service.submit_business_deal(
             build_submission(
+                business_url=(
+                    "https://downtowncoffee.example.com"
+                ),
+                deal_url=(
+                    "https://downtowncoffee.example.com/"
+                    "student-discount"
+                ),
                 starts_at=starts_at,
                 expires_at=expires_at,
             )
@@ -123,6 +134,13 @@ def test_submit_business_deal_copies_submission_fields(app):
         assert deal.category is DealCategory.COFFEE
         assert deal.discount_text == "15% off"
         assert deal.business_email == "owner@example.com"
+        assert deal.business_url == (
+            "https://downtowncoffee.example.com"
+        )
+        assert deal.deal_url == (
+            "https://downtowncoffee.example.com/"
+            "student-discount"
+        )
         assert deal.starts_at is not None
         assert deal.expires_at is not None
 

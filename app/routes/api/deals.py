@@ -35,6 +35,7 @@ def _serialize_public_deal(
         ),
         "terms": deal.terms,
         "promo_code": deal.promo_code,
+        "deal_url": deal.deal_url,
         "starts_at": (
             deal.starts_at.isoformat()
             if deal.starts_at is not None

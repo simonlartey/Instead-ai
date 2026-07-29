@@ -39,6 +39,8 @@ class StudentDealService:
                 submission.redemption_instructions
             ),
             business_email=submission.business_email,
+            business_url=submission.business_url,
+            deal_url=submission.deal_url,
             terms=submission.terms,
             promo_code=submission.promo_code,
             starts_at=submission.starts_at,

@@ -72,6 +72,13 @@ def build_deal(**overrides):
             "Show a valid student ID before payment."
         ),
         "business_email": "owner@example.com",
+        "business_url": (
+            "https://downtowncoffee.example.com"
+        ),
+        "deal_url": (
+            "https://downtowncoffee.example.com/"
+            "student-discount"
+        ),
         "promo_code": "STUDENT15",
         "terms": "Valid for in-store purchases only.",
         "source": DealSource.BUSINESS,
@@ -172,6 +179,13 @@ def test_pending_deals_returns_pending_submissions(
     assert returned_deal["status"] == "pending"
     assert returned_deal["business_email"] == (
         "owner@example.com"
+    )
+    assert returned_deal["business_url"] == (
+        "https://downtowncoffee.example.com"
+    )
+    assert returned_deal["deal_url"] == (
+        "https://downtowncoffee.example.com/"
+        "student-discount"
     )
     assert returned_deal["promo_code"] == (
         "STUDENT15"

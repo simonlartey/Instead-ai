@@ -23,6 +23,13 @@ def valid_submission_data(**overrides):
             "Show a valid student ID before payment."
         ),
         "business_email": "OWNER@EXAMPLE.COM",
+        "business_url": (
+            "https://downtowncoffee.example.com"
+        ),
+        "deal_url": (
+            "https://downtowncoffee.example.com/"
+            "student-discount"
+        ),
     }
 
     data.update(overrides)
@@ -40,6 +47,13 @@ def test_submission_parses_required_fields():
     assert submission.category is DealCategory.COFFEE
     assert submission.discount_text == "15% off"
     assert submission.business_email == "owner@example.com"
+    assert submission.business_url == (
+        "https://downtowncoffee.example.com"
+    )
+    assert submission.deal_url == (
+        "https://downtowncoffee.example.com/"
+        "student-discount"
+    )
     assert submission.terms is None
     assert submission.promo_code is None
     assert submission.starts_at is None
@@ -65,11 +79,15 @@ def test_submission_converts_blank_optional_text_to_none():
         valid_submission_data(
             terms="   ",
             promo_code="",
+            business_url="  ",
+            deal_url="",
         )
     )
 
     assert submission.terms is None
     assert submission.promo_code is None
+    assert submission.business_url is None
+    assert submission.deal_url is None
 
 
 def test_submission_parses_iso_datetimes():
@@ -189,6 +207,117 @@ def test_submission_rejects_text_over_maximum_length(
             valid_submission_data(
                 **{
                     field_name: "x" * (max_length + 1),
+                }
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "business_url",
+        "deal_url",
+    ],
+)
+def test_submission_accepts_http_and_https_urls(
+    field_name,
+):
+    http_submission = (
+        StudentDealSubmission.from_dict(
+            valid_submission_data(
+                **{
+                    field_name: (
+                        "http://example.com/student-deal"
+                    ),
+                }
+            )
+        )
+    )
+
+    https_submission = (
+        StudentDealSubmission.from_dict(
+            valid_submission_data(
+                **{
+                    field_name: (
+                        "https://example.com/student-deal"
+                    ),
+                }
+            )
+        )
+    )
+
+    assert getattr(
+        http_submission,
+        field_name,
+    ).startswith("http://")
+
+    assert getattr(
+        https_submission,
+        field_name,
+    ).startswith("https://")
+
+
+@pytest.mark.parametrize(
+    ("field_name", "label"),
+    [
+        ("business_url", "Business URL"),
+        ("deal_url", "Deal URL"),
+    ],
+)
+@pytest.mark.parametrize(
+    "invalid_url",
+    [
+        "javascript:alert(1)",
+        "ftp://example.com/deal",
+        "example.com/deal",
+        "https://",
+        "not a url",
+    ],
+)
+def test_submission_rejects_invalid_urls(
+    field_name,
+    label,
+    invalid_url,
+):
+    with pytest.raises(
+        DealValidationError,
+        match=(
+            f"{label} must be a valid HTTP or HTTPS URL."
+        ),
+    ):
+        StudentDealSubmission.from_dict(
+            valid_submission_data(
+                **{
+                    field_name: invalid_url,
+                }
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "label"),
+    [
+        ("business_url", "Business URL"),
+        ("deal_url", "Deal URL"),
+    ],
+)
+def test_submission_rejects_url_over_maximum_length(
+    field_name,
+    label,
+):
+    with pytest.raises(
+        DealValidationError,
+        match=(
+            f"{label} must be 500 characters or fewer."
+        ),
+    ):
+        StudentDealSubmission.from_dict(
+            valid_submission_data(
+                **{
+                    field_name: (
+                        "https://example.com/"
+                        + ("x" * 500)
+                    ),
                 }
             )
         )

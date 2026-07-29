@@ -26,6 +26,13 @@ def valid_submission_data(**overrides):
             "Show a valid student ID before payment."
         ),
         "business_email": "owner@example.com",
+        "business_url": (
+            "https://downtowncoffee.example.com"
+        ),
+        "deal_url": (
+            "https://downtowncoffee.example.com/"
+            "student-discount"
+        ),
         "promo_code": "STUDENT15",
         "terms": "Valid for in-store purchases only.",
     }
@@ -49,6 +56,13 @@ def build_deal(**overrides):
             "Show a valid student ID before payment."
         ),
         "business_email": "owner@example.com",
+        "business_url": (
+            "https://downtowncoffee.example.com"
+        ),
+        "deal_url": (
+            "https://downtowncoffee.example.com/"
+            "student-discount"
+        ),
         "promo_code": "STUDENT15",
         "terms": "Valid for in-store purchases only.",
         "source": DealSource.BUSINESS,
@@ -92,6 +106,13 @@ def test_submit_deal_returns_created_response(
         assert deal.business_name == "Downtown Coffee"
         assert deal.status is DealStatus.PENDING
         assert deal.source is DealSource.BUSINESS
+        assert deal.business_url == (
+            "https://downtowncoffee.example.com"
+        )
+        assert deal.deal_url == (
+            "https://downtowncoffee.example.com/"
+            "student-discount"
+        )
 
 
 def test_submit_deal_rejects_non_json_request(client):
@@ -125,6 +146,25 @@ def test_submit_deal_rejects_invalid_submission(client):
         "error": {
             "code": "invalid_deal_submission",
             "message": "Business name is required.",
+        }
+    }
+
+
+def test_submit_deal_rejects_unsafe_url(client):
+    response = client.post(
+        "/api/v1/deals",
+        json=valid_submission_data(
+            deal_url="javascript:alert(1)"
+        ),
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {
+        "error": {
+            "code": "invalid_deal_submission",
+            "message": (
+                "Deal URL must be a valid HTTP or HTTPS URL."
+            ),
         }
     }
 
@@ -186,6 +226,10 @@ def test_list_deals_returns_approved_active_deals(
     assert returned_deal["source"] == "business"
     assert returned_deal["is_featured"] is True
     assert returned_deal["promo_code"] == "STUDENT15"
+    assert returned_deal["deal_url"] == (
+        "https://downtowncoffee.example.com/"
+        "student-discount"
+    )
 
 
 def test_list_deals_does_not_expose_business_email(
@@ -201,6 +245,7 @@ def test_list_deals_does_not_expose_business_email(
     returned_deal = response.get_json()["deals"][0]
 
     assert "business_email" not in returned_deal
+    assert "business_url" not in returned_deal
 
 
 def test_list_deals_excludes_pending_deals(

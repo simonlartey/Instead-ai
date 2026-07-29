@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from app.models.student_deal import DealCategory
 
@@ -21,6 +22,8 @@ class StudentDealSubmission:
     location_name: str
     redemption_instructions: str
     business_email: str
+    business_url: str | None = None
+    deal_url: str | None = None
     terms: str | None = None
     promo_code: str | None = None
     starts_at: datetime | None = None
@@ -75,6 +78,14 @@ class StudentDealSubmission:
         business_email = cls._parse_email(
             data.get("business_email")
         )
+        business_url = cls._optional_url(
+            data.get("business_url"),
+            label="Business URL",
+        )
+        deal_url = cls._optional_url(
+            data.get("deal_url"),
+            label="Deal URL",
+        )
         category = cls._parse_category(
             data.get("category")
         )
@@ -117,6 +128,8 @@ class StudentDealSubmission:
             location_name=location_name,
             redemption_instructions=redemption_instructions,
             business_email=business_email,
+            business_url=business_url,
+            deal_url=deal_url,
             terms=terms,
             promo_code=promo_code,
             starts_at=starts_at,
@@ -232,6 +245,42 @@ class StudentDealSubmission:
         ):
             raise DealValidationError(
                 "Business email must be a valid email address."
+            )
+
+        return normalized_value
+
+    @staticmethod
+    def _optional_url(
+        value: Any,
+        *,
+        label: str,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        if not isinstance(value, str):
+            raise DealValidationError(
+                f"{label} must be a string."
+            )
+
+        normalized_value = value.strip()
+
+        if not normalized_value:
+            return None
+
+        if len(normalized_value) > 500:
+            raise DealValidationError(
+                f"{label} must be 500 characters or fewer."
+            )
+
+        parsed_url = urlparse(normalized_value)
+
+        if (
+            parsed_url.scheme not in {"http", "https"}
+            or not parsed_url.netloc
+        ):
+            raise DealValidationError(
+                f"{label} must be a valid HTTP or HTTPS URL."
             )
 
         return normalized_value

@@ -25,6 +25,8 @@ def _serialize_pending_deal(
         "id": deal.id,
         "business_name": deal.business_name,
         "business_email": deal.business_email,
+        "business_url": deal.business_url,
+        "deal_url": deal.deal_url,
         "title": deal.title,
         "description": deal.description,
         "category": deal.category.value,
