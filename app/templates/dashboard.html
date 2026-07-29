@@ -27,6 +27,11 @@
 </head>
 
 <body>
+  {% set is_deal_admin =
+    current_user.email.lower()
+    in config.get("ADMIN_EMAILS", [])
+  %}
+
   <div
     id="dashboard-shell"
     class="dashboard-shell"
@@ -721,6 +726,29 @@
                 </span>
               </div>
 
+              {% if is_deal_admin %}
+                <button
+                  type="button"
+                  class="student-deals-review-button"
+                  data-open-deal-review
+                >
+                  <span
+                    aria-hidden="true"
+                    data-lucide="clipboard-check"
+                  ></span>
+
+                  Review submissions
+
+                  <span
+                    class="student-deals-review-count"
+                    data-deal-review-count
+                    hidden
+                  >
+                    0
+                  </span>
+                </button>
+              {% endif %}
+
               <button
                 type="button"
                 class="student-deals-submit-button"
@@ -1112,6 +1140,80 @@
               </form>
             </section>
           </div>
+
+          {% if is_deal_admin %}
+            <div
+              class="deal-review-overlay"
+              data-deal-review-overlay
+              hidden
+            >
+              <section
+                class="deal-review-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="deal-review-title"
+              >
+                <header class="deal-review-header">
+                  <div>
+                    <span class="student-deals-eyebrow">
+                      Instead administration
+                    </span>
+
+                    <h2 id="deal-review-title">
+                      Review deal submissions
+                    </h2>
+
+                    <p>
+                      Approve offers that are accurate and suitable
+                      for students, or reject submissions that should
+                      not appear publicly.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="deal-review-close"
+                    aria-label="Close deal review"
+                    data-close-deal-review
+                  >
+                    <span
+                      aria-hidden="true"
+                      data-lucide="x"
+                    ></span>
+                  </button>
+                </header>
+
+                <div
+                  class="deal-review-state"
+                  data-deal-review-state
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span
+                    class="deal-review-state-icon"
+                    aria-hidden="true"
+                    data-lucide="loader-circle"
+                  ></span>
+
+                  <div>
+                    <h3 data-deal-review-state-title>
+                      Loading submissions
+                    </h3>
+
+                    <p data-deal-review-state-message>
+                      Checking for deals awaiting review.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  class="deal-review-list"
+                  data-deal-review-list
+                  hidden
+                ></div>
+              </section>
+            </div>
+          {% endif %}
       </section>
 
       <footer
