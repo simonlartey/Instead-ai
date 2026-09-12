@@ -1,10 +1,7 @@
 document.documentElement.classList.add('js');
 
-const form = document.querySelector('#demo-search');
-const input = document.querySelector('#search-input');
 const queryLabel = document.querySelector('#demo-query');
 const status = document.querySelector('#result-status');
-const promptButtons = document.querySelectorAll('[data-query]');
 const cards = document.querySelectorAll('.place-card[data-place]');
 const categoryItems = document.querySelectorAll('[data-category]');
 const newSearchButton = document.querySelector('.new-search');
@@ -64,29 +61,15 @@ function runDemo(query) {
   document.querySelector('#discover').scrollIntoView({behavior:'smooth', block:'center'});
 }
 
-form.addEventListener('submit', event => {
-  event.preventDefault();
-
-  const query = input.value.trim();
-
-  if (!query) {
-    input.focus();
-    return;
-  }
-
-  window.location.href = form.action;
-});
-promptButtons.forEach(button => button.addEventListener('click', () => { input.value = button.dataset.query; runDemo(button.dataset.query); }));
 newSearchButton.addEventListener('click', () => {
-  currentExampleIndex = (currentExampleIndex + 1) % promptButtons.length;
-  const query = promptButtons[currentExampleIndex].dataset.query;
-  input.value = query;
+  const queries = Array.from(document.querySelectorAll('[data-query]')).map(item => item.dataset.query);
+  currentExampleIndex = (currentExampleIndex + 1) % queries.length;
+  const query = queries[currentExampleIndex];
   runDemo(query);
 });
 categoryItems.forEach(item => item.addEventListener('click', event => {
   event.preventDefault();
   const query = item.dataset.category;
-  input.value = query;
   runDemo(query);
 }));
 

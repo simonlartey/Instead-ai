@@ -97,8 +97,8 @@
         <a href="#categories">Categories</a>
         <a href="#businesses">For Businesses</a>
       </div>
-      <a class="button button--gold" href="{{ url_for('auth.signup') }}">
-        Start Exploring <span aria-hidden="true">→</span>
+      <a class="button button--gold" href="{{ url_for('auth.login') }}">
+        Sign in to Start Exploring <span aria-hidden="true">→</span>
       </a>
     </nav>
 
@@ -106,27 +106,10 @@
       <p class="eyebrow">Local discovery, made personal</p>
       <p class="hero-copy">Whether you're looking for a hidden café, a specialty grocery, or a trusted local service, Instead helps you discover places that truly fit.</p>
 
-      <form
-        class="hero-search"
-        id="demo-search"
-        action="{{ url_for('auth.signup') }}"
-        aria-describedby="demo-disclaimer"
-        novalidate
-      >
-        <label class="sr-only" for="search-input">What are you looking for today?</label>
-        <span class="search-icon" aria-hidden="true"></span>
-        <input id="search-input" type="search" autocomplete="off" placeholder="What are you looking for today?" />
-        <button type="submit" aria-label="Continue to live search">↑</button>
-      </form>
-      <p class="demo-disclaimer" id="demo-disclaimer">Sign in to run a live search.</p>
-
-      <div class="prompt-row" aria-label="Example searches">
-        <button class="prompt-chip" type="button" data-query="A quiet café with reliable Wi-Fi and outlets"><svg aria-hidden="true"><use href="#icon-coffee" /></svg><span>Quiet café with Wi-Fi</span></button>
-        <button class="prompt-chip" type="button" data-query="An affordable barber nearby who understands textured hair"><svg aria-hidden="true"><use href="#icon-scissors" /></svg><span>Affordable haircut nearby</span></button>
-        <button class="prompt-chip" type="button" data-query="Late-night food that is still open"><svg aria-hidden="true"><use href="#icon-moon" /></svg><span>Late-night food</span></button>
-        <button class="prompt-chip" type="button" data-query="Something fun to do this weekend"><svg aria-hidden="true"><use href="#icon-sparkles" /></svg><span>Weekend activities</span></button>
-        <button class="prompt-chip" type="button" data-query="International groceries close to me"><svg aria-hidden="true"><use href="#icon-basket" /></svg><span>International groceries</span></button>
-      </div>
+      <a class="button button--gold" href="{{ url_for('auth.login') }}">
+        Sign in to start searching <span aria-hidden="true">→</span>
+      </a>
+      <p class="demo-disclaimer" id="demo-disclaimer">Sign in securely with Google to discover personalized local recommendations.</p>
     </div>
 
     <div class="demo-label" aria-label="Interactive product preview">
@@ -325,15 +308,15 @@
         <li>Grow through meaningful connections</li>
       </ul>
 
-      <a class="business-link" href="{{ url_for('auth.signup') }}">
+      <a class="business-link" href="{{ url_for('auth.login') }}">
         Get started <span aria-hidden="true">→</span>
       </a>
     </section>
 
     <section class="final-cta container reveal" id="start-exploring">
       <div><h2>Your next favorite place<br />may already be <em>nearby.</em></h2><p>Start a conversation. Discover with Instead.</p></div>
-      <a class="button button--gold" href="{{ url_for('auth.signup') }}">
-        Start Exploring <span class="arrow" aria-hidden="true">→</span>
+      <a class="button button--gold" href="{{ url_for('auth.login') }}">
+        Sign in to Start Exploring <span class="arrow" aria-hidden="true">→</span>
       </a>
     </section>
 
