@@ -31,7 +31,8 @@ def test_login_page_contains_google_sign_in(client):
 
     assert "Continue with Google" in html
     assert (
-        "Secure sign-in through Google. Instead never sees or stores "
+        "Secure sign-in through Google. You will be redirected to Google "
+        "to authenticate, then returned to Instead. Instead never sees or stores "
         "your Google password."
     ) in html
     assert 'name="email"' not in html
